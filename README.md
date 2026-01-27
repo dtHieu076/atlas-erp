@@ -47,6 +47,6 @@ UPSTASH_REDIS_REST_TOKEN="AR9tAAImcDE1ZGYzMGIxZDBkZWQ0ZTFkODc5MTQ4M2E0MmI5YWNlZH
 
 ## Tech Stack
 - Java Spring Boot
-- RabbitMQ
+- Kafka
 - Docker / Docker Compose
 - Kong API Gateway
