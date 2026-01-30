@@ -1,4 +1,4 @@
-package com.atlas_erp.hr_service.DTO;
+package com.atlas_erp.hr_service.Dto;
 
 import lombok.Data;
 import java.time.LocalDate;
