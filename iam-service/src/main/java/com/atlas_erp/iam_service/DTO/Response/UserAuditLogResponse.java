@@ -1,8 +1,9 @@
-package com.atlas_erp.iam_service.DTO.Response;
+package com.atlas_erp.iam_service.Dto.Response;
 
-import com.atlas_erp.iam_service.DTO.AuditLogDto;
 import lombok.Data;
 import java.util.List;
+
+import com.atlas_erp.iam_service.Dto.AuditLogDto;
 
 @Data
 public class UserAuditLogResponse {

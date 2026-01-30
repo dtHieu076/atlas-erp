@@ -1,4 +1,4 @@
-package com.atlas_erp.iam_service.DTO;
+package com.atlas_erp.iam_service.Dto;
 
 import lombok.Data;
 
