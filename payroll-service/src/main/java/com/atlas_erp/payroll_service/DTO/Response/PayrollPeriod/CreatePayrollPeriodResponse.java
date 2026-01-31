@@ -1,4 +1,4 @@
-package com.atlas_erp.payroll_service.DTO.Response;
+package com.atlas_erp.payroll_service.Dto.Response.PayrollPeriod;
 
 import lombok.Data;
 

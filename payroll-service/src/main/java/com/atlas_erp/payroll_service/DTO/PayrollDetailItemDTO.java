@@ -1,4 +1,4 @@
-package com.atlas_erp.payroll_service.DTO;
+package com.atlas_erp.payroll_service.Dto;
 
 import lombok.Data;
 import java.math.BigDecimal;

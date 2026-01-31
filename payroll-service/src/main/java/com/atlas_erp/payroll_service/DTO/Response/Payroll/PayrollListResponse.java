@@ -1,8 +1,9 @@
-package com.atlas_erp.payroll_service.DTO.Response;
+package com.atlas_erp.payroll_service.Dto.Response.Payroll;
 
-import com.atlas_erp.payroll_service.DTO.PayrollDetailItemDTO;
 import lombok.Data;
 import java.util.List;
+
+import com.atlas_erp.payroll_service.Dto.PayrollDetailItemDTO;
 
 @Data
 public class PayrollListResponse {
