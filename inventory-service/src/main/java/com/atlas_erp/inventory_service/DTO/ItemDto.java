@@ -1,4 +1,4 @@
-package com.atlas_erp.inventory_service.DTO;
+package com.atlas_erp.inventory_service.Dto;
 
 import lombok.Data;
 
