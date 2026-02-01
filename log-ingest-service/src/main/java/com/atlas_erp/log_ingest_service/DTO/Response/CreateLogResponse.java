@@ -1,4 +1,4 @@
-package com.atlas_erp.log_ingest_service.DTO.Response;
+package com.atlas_erp.log_ingest_service.Dto.Response;
 
 import lombok.Data;
 

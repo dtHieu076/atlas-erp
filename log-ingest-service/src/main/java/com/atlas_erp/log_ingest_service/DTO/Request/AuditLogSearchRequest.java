@@ -1,4 +1,4 @@
-package com.atlas_erp.log_ingest_service.DTO.Request;
+package com.atlas_erp.log_ingest_service.Dto.Request;
 
 import lombok.Data;
 import java.time.OffsetDateTime;
