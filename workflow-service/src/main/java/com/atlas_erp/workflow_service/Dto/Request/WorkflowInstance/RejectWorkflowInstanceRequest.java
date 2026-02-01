@@ -1,4 +1,4 @@
-package com.atlas_erp.workflow_service.DTO.Request;
+package com.atlas_erp.workflow_service.Dto.Request.WorkflowInstance;
 
 import lombok.Data;
 

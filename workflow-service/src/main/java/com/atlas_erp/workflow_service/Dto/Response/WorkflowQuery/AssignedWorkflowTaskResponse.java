@@ -1,4 +1,4 @@
-package com.atlas_erp.workflow_service.DTO.Response;
+package com.atlas_erp.workflow_service.Dto.Response.WorkflowQuery;
 
 import lombok.Data;
 import java.util.List;
