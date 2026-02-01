@@ -1,4 +1,4 @@
-package com.atlas_erp.accounting_service.DTO.Response;
+package com.atlas_erp.accounting_service.Dto.Request.JournalEntry;
 
 import lombok.Data;
 import java.util.Date;
@@ -6,19 +6,19 @@ import java.util.List;
 import java.math.BigDecimal;
 
 @Data
-public class JournalEntryDetailResponse {
+public class CreateJournalEntryRequest {
 
-    private String journalEntryId;
     private Date entryDate;
     private String description;
-    private Date createdAt;
+    private String periodId;
     private String createdBy;
-    private List<JournalEntryLine> lines;
+    private List<JournalLine> lines;
 
     @Data
-    public static class JournalEntryLine {
+    public static class JournalLine {
         private String accountId;
         private BigDecimal debit;
         private BigDecimal credit;
+        private String note;
     }
 }

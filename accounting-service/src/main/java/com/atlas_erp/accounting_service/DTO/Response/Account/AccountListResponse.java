@@ -1,4 +1,4 @@
-package com.atlas_erp.accounting_service.DTO.Response;
+package com.atlas_erp.accounting_service.Dto.Response.Account;
 
 import lombok.Data;
 import java.util.List;

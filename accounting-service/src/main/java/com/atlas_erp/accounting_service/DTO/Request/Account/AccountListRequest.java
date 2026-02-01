@@ -1,4 +1,4 @@
-package com.atlas_erp.accounting_service.DTO.Request;
+package com.atlas_erp.accounting_service.Dto.Request.Account;
 
 import lombok.Data;
 
