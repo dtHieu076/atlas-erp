@@ -1,4 +1,4 @@
-package com.atlas_erp.reporting_service.DTO.Request;
+package com.atlas_erp.reporting_service.Dto.Request;
 
 import lombok.Data;
 

@@ -1,4 +1,4 @@
-package com.atlas_erp.reporting_service.DTO.Response;
+package com.atlas_erp.reporting_service.Dto.Response;
 
 import lombok.Data;
 import java.util.Date;
