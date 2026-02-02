@@ -9,8 +9,6 @@ import com.atlas_erp.iam_service.Event.serviceKafka.UserEventProducer;
 import com.atlas_erp.iam_service.Repository.AppUserRepository;
 import com.atlas_erp.iam_service.Repository.UserIdentityRepository;
 import com.atlas_erp.iam_service.Service.UserService;
-
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
