@@ -2,7 +2,15 @@ package com.atlas_erp.iam_service.Service.Impl;
 
 import com.atlas_erp.iam_service.Dto.Request.User.*;
 import com.atlas_erp.iam_service.Dto.Response.User.*;
+import com.atlas_erp.iam_service.Entity.AppUserEntity;
+import com.atlas_erp.iam_service.Entity.UserIdentityEntity;
+import com.atlas_erp.iam_service.Event.dtoEvent.UserCreatedEvent;
+import com.atlas_erp.iam_service.Event.serviceKafka.UserEventProducer;
+import com.atlas_erp.iam_service.Repository.AppUserRepository;
+import com.atlas_erp.iam_service.Repository.UserIdentityRepository;
 import com.atlas_erp.iam_service.Service.UserService;
+
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -11,6 +19,10 @@ import java.util.UUID;
 
 @Service
 public class UserServiceImpl implements UserService {
+
+    private UserIdentityRepository userIdentityRepository;
+    private AppUserRepository appUserRepository;
+    private UserEventProducer userEventProducer;
 
     @Override
     public UserListResponse searchUsers(UserSearchRequest request) {
@@ -21,8 +33,59 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UUID createUser(CreateUserRequest request) {
-        return UUID.randomUUID();
+    public CreateUserResponse createUser(CreateUserRequest request) {
+        // 1. Validate input
+        if (request.getGoogleUid() == null || request.getGoogleUid().isBlank()) {
+            throw new IllegalArgumentException("googleUid is required");
+        }
+
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("email is required");
+        }
+
+        // 2. Check identity already exists
+        userIdentityRepository
+                .findByProviderAndProviderUid("GOOGLE", request.getGoogleUid())
+                .ifPresent(i -> {
+                    throw new IllegalStateException("Google account already registered");
+                });
+
+        // 3. Create AppUser
+        AppUserEntity user = AppUserEntity.builder()
+                .employeeId(
+                        request.getEmployeeId() != null
+                                ? UUID.fromString(request.getEmployeeId())
+                                : null)
+                .status(
+                        request.getStatus() != null
+                                ? request.getStatus()
+                                : "ACTIVE")
+                .createdAt(Instant.now())
+                .build();
+
+        user = appUserRepository.save(user);
+
+        // 4. Create UserIdentity (GOOGLE)
+        UserIdentityEntity identity = new UserIdentityEntity();
+        identity.setUserId(user.getId());
+        identity.setProvider("GOOGLE");
+        identity.setProviderUid(request.getGoogleUid());
+        identity.setEmail(request.getEmail());
+
+        userIdentityRepository.save(identity);
+
+        // 5. Emit event: iam.user.created
+        UserCreatedEvent event = UserCreatedEvent.builder()
+                .userId(user.getId())
+                .employeeId(user.getEmployeeId())
+                .status(user.getStatus())
+                .createdAt(user.getCreatedAt())
+                .build();
+
+        userEventProducer.publishUserCreated(event);
+
+        // 6. Response
+        return new CreateUserResponse(user.getId().toString());
     }
 
     @Override

@@ -4,8 +4,26 @@ import lombok.Data;
 
 @Data
 public class CreateUserRequest {
-    private String username;
-    private String password;
+
+    /**
+     * Google unique user id (sub)
+     * BẮT BUỘC
+     */
+    private String googleUid;
+
+    /**
+     * Email từ Google
+     * Dùng làm username hiển thị
+     */
+    private String email;
+
+    /**
+     * Liên kết sang HR (optional)
+     */
     private String employeeId;
+
+    /**
+     * ACTIVE | INACTIVE | LOCKED
+     */
     private String status;
 }

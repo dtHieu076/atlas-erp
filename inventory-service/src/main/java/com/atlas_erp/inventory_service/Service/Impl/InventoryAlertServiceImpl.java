@@ -14,7 +14,6 @@ public class InventoryAlertServiceImpl implements InventoryAlertService {
     public InventoryAlertResponse getInventoryAlerts(
             InventoryAlertQueryRequest request) {
 
-        // TODO:
         // LOW_STOCK / OVER_STOCK / AGING
 
         return new InventoryAlertResponse();

@@ -4,6 +4,20 @@ import lombok.Data;
 
 @Data
 public class LoginRequest {
-    private String username;
-    private String password;
+    /**
+     * Identity provider
+     * VD: GOOGLE
+     */
+    private String provider;
+
+    /**
+     * Unique user id from provider
+     * VD: Google sub / user id
+     */
+    private String providerUid;
+
+    /**
+     * Email từ provider (metadata)
+     */
+    private String email;
 }

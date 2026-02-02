@@ -15,7 +15,6 @@ public class StockLockServiceImpl implements StockLockService {
     @Override
     public StockLockResponse lockInventoryPeriod(StockLockRequest request) {
 
-        // TODO:
         // - Kiểm tra kỳ đã khóa chưa
         // - Ghi nhận inventory_lock
 
