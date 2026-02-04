@@ -1,27 +1,28 @@
-package com.atlas_erp.iam_service.Event.serviceKafka;
+package com.atlas_erp.iam_service.Event.serviceEvent;
 
 import com.atlas_erp.iam_service.Event.dtoEvent.UserCreatedEvent;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class UserEventProducer {
+public class UserEventService {
+
+    private static final String TOPIC_USER_CREATED = "iam.user.created";
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
     public void publishUserCreated(UserCreatedEvent event) {
-        // Nơi nhận: HR Service và Workflow Service
         try {
             kafkaTemplate.send(
-                    "iam.user.created",
+                    TOPIC_USER_CREATED,
                     event.getUserId().toString(),
                     objectMapper.writeValueAsString(event));
         } catch (Exception e) {
-            throw new RuntimeException("Lỗi serialize event hoặc gửi Kafka", e);
+            throw new RuntimeException("Serialize / send Kafka failed", e);
         }
     }
 }

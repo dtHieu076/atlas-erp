@@ -5,10 +5,13 @@ import com.atlas_erp.iam_service.Dto.Response.User.*;
 import com.atlas_erp.iam_service.Entity.AppUserEntity;
 import com.atlas_erp.iam_service.Entity.UserIdentityEntity;
 import com.atlas_erp.iam_service.Event.dtoEvent.UserCreatedEvent;
-import com.atlas_erp.iam_service.Event.serviceKafka.UserEventProducer;
+import com.atlas_erp.iam_service.Event.serviceEvent.UserEventService;
 import com.atlas_erp.iam_service.Repository.AppUserRepository;
 import com.atlas_erp.iam_service.Repository.UserIdentityRepository;
 import com.atlas_erp.iam_service.Service.UserService;
+import org.springframework.transaction.annotation.Transactional;
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -16,11 +19,12 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor // Lombok sẽ tạo Constructor cho tất cả các field 'final'
 public class UserServiceImpl implements UserService {
 
-    private UserIdentityRepository userIdentityRepository;
-    private AppUserRepository appUserRepository;
-    private UserEventProducer userEventProducer;
+    private final UserIdentityRepository userIdentityRepository;
+    private final AppUserRepository appUserRepository;
+    private final UserEventService userEventService;
 
     @Override
     public UserListResponse searchUsers(UserSearchRequest request) {
@@ -31,6 +35,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public CreateUserResponse createUser(CreateUserRequest request) {
         // 1. Validate input
         if (request.getGoogleUid() == null || request.getGoogleUid().isBlank()) {
@@ -80,7 +85,7 @@ public class UserServiceImpl implements UserService {
                 .createdAt(user.getCreatedAt())
                 .build();
 
-        userEventProducer.publishUserCreated(event);
+        userEventService.publishUserCreated(event);
 
         // 6. Response
         return new CreateUserResponse(user.getId().toString());
