@@ -110,4 +110,19 @@ public class JwtTokenServiceImpl implements JwtTokenService {
         }
     }
 
+    @Override
+    public UUID getUserIdFromAccessToken(String token) {
+        try {
+            String subject = Jwts.parserBuilder()
+                    .setSigningKey(signingKey)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .getSubject();
+            return UUID.fromString(subject);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
 }

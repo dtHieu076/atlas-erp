@@ -1,6 +1,7 @@
 package com.atlas_erp.iam_service.Service;
 
 import com.atlas_erp.iam_service.Dto.Request.User.*;
+import com.atlas_erp.iam_service.Dto.Response.BaseSuccessResponse;
 import com.atlas_erp.iam_service.Dto.Response.User.*;
 import java.util.UUID;
 
@@ -10,15 +11,15 @@ public interface UserService {
 
     CreateUserResponse createUser(CreateUserRequest request);
 
-    void updateStatus(UUID userId, UpdateUserStatusRequest request);
+    BaseSuccessResponse updateStatus(UUID userId, UpdateUserStatusRequest request);
 
-    void lockUser(UUID userId, LockUserRequest request);
+    BaseSuccessResponse lockUser(UUID userId, LockUserRequest request);
 
     UnlockUserResponse unlockUser(UUID userId, UnlockUserRequest request);
 
     ForcePasswordResetResponse forcePasswordReset(UUID userId, ForcePasswordResetRequest request);
 
-    void assignRoles(UUID userId, AssignRolesRequest request);
+    BaseSuccessResponse assignRoles(UUID userId, AssignRolesRequest request);
 
     UserDetailResponse getUserDetail(UUID userId);
 

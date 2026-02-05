@@ -13,4 +13,6 @@ public interface JwtTokenService {
     boolean validateRefreshToken(String refreshToken);
 
     UUID getUserIdFromRefreshToken(String refreshToken);
+
+    UUID getUserIdFromAccessToken(String token);
 }

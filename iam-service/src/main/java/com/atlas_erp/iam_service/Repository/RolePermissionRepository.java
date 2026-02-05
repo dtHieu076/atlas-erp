@@ -13,5 +13,7 @@ public interface RolePermissionRepository
 
     List<RolePermissionEntity> findByRoleId(UUID roleId);
 
+    List<RolePermissionEntity> findByRoleIdIn(List<UUID> roleIds);
+
     boolean existsByRoleIdAndPermissionId(UUID roleId, UUID permissionId);
 }

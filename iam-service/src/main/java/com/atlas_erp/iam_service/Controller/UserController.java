@@ -28,16 +28,12 @@ public class UserController {
 
     @PutMapping("/{id}")
     public BaseSuccessResponse updateStatus(@PathVariable UUID id, @RequestBody UpdateUserStatusRequest request) {
-        // Chưa làm
-        userService.updateStatus(id, request);
-        return BaseSuccessResponse.success();
+        return userService.updateStatus(id, request);
     }
 
     @PostMapping("/{id}/lock")
     public BaseSuccessResponse lock(@PathVariable UUID id, @RequestBody LockUserRequest request) {
-        // Chưa làm
-        userService.lockUser(id, request);
-        return BaseSuccessResponse.success();
+        return userService.lockUser(id, request);
     }
 
     @PostMapping("/{id}/unlock")
@@ -46,15 +42,14 @@ public class UserController {
     }
 
     @PostMapping("/{id}/force-password-reset")
-    public ForcePasswordResetResponse forceReset(@PathVariable UUID id, @RequestBody ForcePasswordResetRequest request) {
+    public ForcePasswordResetResponse forceReset(@PathVariable UUID id,
+            @RequestBody ForcePasswordResetRequest request) {
         return userService.forcePasswordReset(id, request);
     }
 
     @PostMapping("/{id}/roles")
     public BaseSuccessResponse assignRoles(@PathVariable UUID id, @RequestBody AssignRolesRequest request) {
-        // Chưa làm
-        userService.assignRoles(id, request);
-        return BaseSuccessResponse.success();
+        return userService.assignRoles(id, request);
     }
 
     @GetMapping("/{id}")

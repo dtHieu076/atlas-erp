@@ -8,11 +8,6 @@ import lombok.NoArgsConstructor;
 /**
  * Request dùng để tìm kiếm danh sách permission
  * API: GET /permissions
- *
- * Lưu ý:
- * - Đây là IAM hạ tầng
- * - Không phân trang vì số lượng permission thường nhỏ
- * - Các field đều optional
  */
 @Data
 @NoArgsConstructor
