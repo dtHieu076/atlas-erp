@@ -7,3 +7,4 @@ public class RefreshTokenResponse {
     private String accessToken;
     private Long expiresIn;
 }
+

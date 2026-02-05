@@ -10,4 +10,6 @@ import java.util.Optional;
 public interface RoleRepository extends JpaRepository<RoleEntity, UUID> {
 
     Optional<RoleEntity> findByRoleCode(String roleCode);
+
+    boolean existsByRoleCode(String roleCode);
 }

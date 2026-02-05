@@ -15,4 +15,5 @@ public class RoleEntity {
 
     private String roleCode;
     private String roleName;
+    private String description;
 }

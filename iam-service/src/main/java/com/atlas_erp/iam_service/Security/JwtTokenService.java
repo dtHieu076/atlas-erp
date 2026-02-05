@@ -9,4 +9,8 @@ public interface JwtTokenService {
     String generateRefreshToken(UUID userId);
 
     Long getAccessTokenExpiry();
+
+    boolean validateRefreshToken(String refreshToken);
+
+    UUID getUserIdFromRefreshToken(String refreshToken);
 }

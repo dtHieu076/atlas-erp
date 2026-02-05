@@ -66,4 +66,48 @@ public class JwtTokenServiceImpl implements JwtTokenService {
     public Long getAccessTokenExpiry() {
         return accessTokenExpiration;
     }
+
+    @Override
+    public boolean validateRefreshToken(String refreshToken) {
+        try {
+            Jwts.parserBuilder()
+                    .setSigningKey(signingKey)
+                    .requireIssuer(issuer)
+                    .build()
+                    .parseClaimsJws(refreshToken);
+
+            String type = Jwts.parserBuilder()
+                    .setSigningKey(signingKey)
+                    .build()
+                    .parseClaimsJws(refreshToken)
+                    .getBody()
+                    .get("type", String.class);
+
+            return "REFRESH".equals(type);
+
+        } catch (Exception ex) {
+            // signature invalid / expired / malformed
+            return false;
+        }
+    }
+
+    @Override
+    public UUID getUserIdFromRefreshToken(String refreshToken) {
+
+        try {
+            String subject = Jwts.parserBuilder()
+                    .setSigningKey(signingKey)
+                    .requireIssuer(issuer)
+                    .build()
+                    .parseClaimsJws(refreshToken)
+                    .getBody()
+                    .getSubject();
+
+            return UUID.fromString(subject);
+
+        } catch (Exception ex) {
+            throw new IllegalStateException("Invalid refresh token", ex);
+        }
+    }
+
 }

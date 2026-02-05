@@ -10,4 +10,6 @@ import java.util.List;
 public interface PermissionRepository extends JpaRepository<PermissionEntity, UUID> {
 
     List<PermissionEntity> findByModule(String module);
+
+    List<PermissionEntity> findAllById(Iterable<UUID> ids);
 }
