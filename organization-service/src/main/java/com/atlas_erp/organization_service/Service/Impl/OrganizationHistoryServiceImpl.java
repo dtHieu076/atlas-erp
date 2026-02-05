@@ -10,7 +10,7 @@ import java.util.List;
 @Service
 public class OrganizationHistoryServiceImpl implements OrganizationHistoryService {
 
-    @Override
+    @Override // Không cần vì đã liên quan đến ghi log
     public OrganizationHistoryResponse searchHistory(OrganizationHistoryRequest request) {
         OrganizationHistoryResponse response = new OrganizationHistoryResponse();
         response.setHistoryList(List.of());

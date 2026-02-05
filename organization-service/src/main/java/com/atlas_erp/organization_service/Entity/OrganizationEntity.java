@@ -9,6 +9,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "organization")
 @Data
+@Builder
 public class OrganizationEntity {
 
     @Id
