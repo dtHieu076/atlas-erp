@@ -15,7 +15,7 @@ public class DefectServiceImpl implements DefectService {
 
     // private final DefectLogRepository defectLogRepository;
 
-    @Override
+    @Override // Chưa càn gấp
     public CreateDefectResponse logDefect(CreateDefectRequest request) {
 
         CreateDefectResponse response = new CreateDefectResponse();

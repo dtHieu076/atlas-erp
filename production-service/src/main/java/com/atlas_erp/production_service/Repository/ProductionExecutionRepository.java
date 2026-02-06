@@ -11,5 +11,7 @@ public interface ProductionExecutionRepository extends JpaRepository<ProductionE
     List<ProductionExecutionEntity> findByProductionOrderId(UUID productionOrderId);
 
     Optional<ProductionExecutionEntity> findByProductionOrderIdAndEndTimeIsNull(
-            UUID productionOrderId);
+            UUID productionOrderId);// Thêm phương thức này để tìm tất cả thực thi từ danh sách Order IDs
+
+    List<ProductionExecutionEntity> findByProductionOrderIdIn(List<UUID> productionOrderIds);
 }
