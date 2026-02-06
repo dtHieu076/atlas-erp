@@ -5,6 +5,7 @@ import lombok.*;
 import java.util.UUID;
 import java.time.LocalDate;
 import java.time.Instant;
+import java.util.List;
 
 @Entity
 @Table(name = "employee")
@@ -36,4 +37,8 @@ public class EmployeeEntity {
     private String status;
 
     private Instant createdAt;
+
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employeeId", referencedColumnName = "id", insertable = false, updatable = false)
+    private List<EmployeeAssignmentEntity> assignments;
 }

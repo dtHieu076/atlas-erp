@@ -10,6 +10,7 @@ import java.util.UUID;
 public interface EmployeeRepository
         extends JpaRepository<EmployeeEntity, UUID>,
         JpaSpecificationExecutor<EmployeeEntity> {
+    boolean existsByEmployeeCode(String employeeCode);
 
     Optional<EmployeeEntity> findByEmployeeCode(String employeeCode);
 }
