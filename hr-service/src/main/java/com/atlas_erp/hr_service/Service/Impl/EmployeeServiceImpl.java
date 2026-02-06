@@ -346,9 +346,10 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional
     public EmployeeTransferResponse transferEmployee(UUID employeeId, EmployeeTransferRequest request) {
         // 1. Kiểm tra nhân viên tồn tại
-        EmployeeEntity employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên: " + employeeId));
-
+        // 1. Chỉ kiểm tra tồn tại (Xóa bỏ lỗi biến không sử dụng)
+        if (!employeeRepository.existsById(employeeId)) {
+            throw new ResourceNotFoundException("Không tìm thấy nhân viên: " + employeeId);
+        }
         // 2. Xử lý logic Assignment (Kết thúc cái cũ, tạo cái mới)
         // Tìm assignment hiện tại đang active
         Optional<EmployeeAssignmentEntity> currentAssignmentOpt = assignmentRepository.findAll().stream()
