@@ -10,6 +10,8 @@ import com.atlas_erp.payroll_service.Dto.Response.getData.EmployeePayrollDataRes
 import com.atlas_erp.payroll_service.Entity.PayrollComponentEntity;
 import com.atlas_erp.payroll_service.Entity.PayrollEntity;
 import com.atlas_erp.payroll_service.Entity.PayrollPeriodEntity;
+import com.atlas_erp.payroll_service.Event.dtoEvent.PayrollApprovedEvent;
+import com.atlas_erp.payroll_service.Event.serviceEvent.PayrollPeriodEventService;
 import com.atlas_erp.payroll_service.Repository.PayrollComponentRepository;
 import com.atlas_erp.payroll_service.Repository.PayrollPeriodRepository;
 import com.atlas_erp.payroll_service.Repository.PayrollRepository;
@@ -38,6 +40,7 @@ public class PayrollServiceImpl implements PayrollService {
         private final PayrollPeriodRepository payrollPeriodRepository;
         private final PayrollComponentRepository payrollComponentRepository;
         private final PayrollPeriodCacheService payrollPeriodCacheService;
+        private final PayrollPeriodEventService payrollPeriodEventService;
         private final HRServiceClient hrServiceClient;
 
         @Override
@@ -214,7 +217,7 @@ public class PayrollServiceImpl implements PayrollService {
                 return response;
         }
 
-        @Override
+        @Override // Không cần làm gấp
         public PayrollRecalculateResponse recalculate(PayrollRecalculateRequest request) {
 
                 PayrollRecalculateResponse response = new PayrollRecalculateResponse();
@@ -230,20 +233,55 @@ public class PayrollServiceImpl implements PayrollService {
         }
 
         @Override
+        @Transactional
         public ApprovePayrollResponse approve(UUID payrollId, ApprovePayrollRequest request) {
+                log.info("Bắt đầu phê duyệt bảng lương cho ID: {}", payrollId);
+
+                PayrollEntity payroll = payrollRepository.findById(payrollId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Không tìm thấy bảng lương với ID: " + payrollId));
+
+                if ("APPROVED".equalsIgnoreCase(payroll.getStatus())) {
+                        throw new IllegalStateException("Bảng lương này đã ở trạng thái APPROVED.");
+                }
+
+                String currentUser = "ADMIN_PRO";
+                payroll.setStatus("APPROVED");
+                payrollRepository.save(payroll);
+
+                // 4. Phát Event - Sửa eventService thành payrollPeriodEventService
+                try {
+                        PayrollApprovedEvent approvedEvent = PayrollApprovedEvent.builder()
+                                        .payrollId(payroll.getId())
+                                        .employeeId(payroll.getEmployeeId())
+                                        .periodId(payroll.getPayrollPeriodId())
+                                        .netSalary(payroll.getNetSalary())
+                                        .status("APPROVED")
+                                        .approvedBy(currentUser)
+                                        .approvedAt(LocalDateTime.now())
+                                        .build();
+
+                        // Sửa tại đây
+                        payrollPeriodEventService.publishPayrollApproved(approvedEvent);
+                } catch (Exception e) {
+                        log.error("Lỗi khi phát sự kiện Kafka: {}", e.getMessage());
+                        throw new RuntimeException("Phê duyệt thất bại do lỗi hệ thống tin nhắn.");
+                }
+
+                // 5. Xóa Cache - Sửa cacheService thành payrollPeriodCacheService
+                payrollPeriodCacheService.evictAllListCache();
 
                 ApprovePayrollResponse response = new ApprovePayrollResponse();
-
-                response.setSuccess(true); // mock approve OK
+                response.setSuccess(true);
                 response.setPayrollId(payrollId.toString());
                 response.setStatus("APPROVED");
                 response.setApprovedAt(LocalDateTime.now());
-                response.setApprovedBy("SYSTEM"); // mock user
+                response.setApprovedBy(currentUser);
 
                 return response;
         }
 
-        @Override
+        @Override // Chưa cần gấp
         public RejectPayrollResponse reject(UUID payrollId, RejectPayrollRequest request) {
 
                 RejectPayrollResponse response = new RejectPayrollResponse();
@@ -257,7 +295,7 @@ public class PayrollServiceImpl implements PayrollService {
                 return response;
         }
 
-        @Override
+        @Override // Không cần gấp
         public PayrollDetailResponse detail(UUID payrollId) {
 
                 PayrollDetailResponse response = new PayrollDetailResponse();

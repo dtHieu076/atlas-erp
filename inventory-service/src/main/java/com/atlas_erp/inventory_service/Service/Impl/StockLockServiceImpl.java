@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class StockLockServiceImpl implements StockLockService {
 
-    @Override
+    @Override // Chưa cần gấp
     public StockLockResponse lockInventoryPeriod(StockLockRequest request) {
 
         // - Kiểm tra kỳ đã khóa chưa

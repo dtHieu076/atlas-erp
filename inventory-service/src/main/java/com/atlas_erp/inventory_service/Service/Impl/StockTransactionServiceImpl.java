@@ -15,7 +15,7 @@ public class StockTransactionServiceImpl implements StockTransactionService {
 
     // private final StockTransactionRepository stockTransactionRepository;
 
-    @Override
+    @Override // Chưa cần gấp
     public StockTransactionQueryResponse queryStockTransactions(
             StockTransactionQueryRequest request) {
 

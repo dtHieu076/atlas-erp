@@ -13,7 +13,7 @@ import java.util.UUID;
 @Transactional
 public class StockCheckServiceImpl implements StockCheckService {
 
-    @Override
+    @Override //Chưa cần gấp
     public CreateStockCheckResponse createStockCheck(CreateStockCheckRequest request) {
 
         CreateStockCheckResponse response = new CreateStockCheckResponse();
