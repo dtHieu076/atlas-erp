@@ -16,4 +16,7 @@ public class AccountEntity {
     private String accountCode;
     private String accountName;
     private String accountType;
+    private UUID parentId;
+    private Integer level;
+    private String status; // ACTIVE, INACTIVE
 }
