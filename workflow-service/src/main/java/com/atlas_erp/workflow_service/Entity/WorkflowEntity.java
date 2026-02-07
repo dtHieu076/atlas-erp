@@ -7,6 +7,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "workflow")
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class WorkflowEntity {
 
     @Id
@@ -16,4 +18,9 @@ public class WorkflowEntity {
     private String code;
     private String name;
     private String businessType;
+
+    // Bổ sung các trường còn thiếu
+    private String description;
+    private String status; // ACTIVE, INACTIVE
+    private Integer version;
 }

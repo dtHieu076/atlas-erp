@@ -1,10 +1,15 @@
 package com.atlas_erp.workflow_service.Dto.Response.WorkflowQuery;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.List;
 import java.util.Date;
 
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class AssignedWorkflowTaskResponse {
 
     private List<WorkflowTaskDto> tasks;

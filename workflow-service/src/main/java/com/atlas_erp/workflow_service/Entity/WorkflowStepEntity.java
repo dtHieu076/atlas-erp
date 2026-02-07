@@ -17,5 +17,10 @@ public class WorkflowStepEntity {
     private Integer stepOrder;
 
     private UUID roleId;
+
+    // Bổ sung trường còn thiếu
+    private String actionType; // APPROVE | REVIEW
+
     private String conditionRule;
+    private Integer durationHours;
 }
