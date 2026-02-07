@@ -8,10 +8,13 @@ import com.atlas_erp.hr_service.Dto.Response.Employee.*;
 import com.atlas_erp.hr_service.Entity.EmployeeAssignmentEntity;
 import com.atlas_erp.hr_service.Entity.EmployeeEntity;
 import com.atlas_erp.hr_service.Repository.EmployeeRepository;
+import com.atlas_erp.hr_service.Repository.AttendanceRepository;
 import com.atlas_erp.hr_service.Repository.EmployeeAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import java.util.Optional;
 import java.time.LocalDate;
+import java.time.YearMonth;
+
 import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +27,8 @@ import com.atlas_erp.hr_service.Event.dtoEvent.EmployeeCreatedEvent;
 import com.atlas_erp.hr_service.Event.serviceEvent.EmployeeEventService;
 import com.atlas_erp.hr_service.Event.dtoEvent.EmployeeUpdatedEvent;
 import com.atlas_erp.hr_service.Event.dtoEvent.EmployeeMovedEvent;
+
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmployeeServiceImpl implements EmployeeService {
 
     private final EmployeeRepository employeeRepository;
+    private final AttendanceRepository attendanceRepository;
     private final EmployeeAssignmentRepository assignmentRepository;
     private final EmployeeCacheService employeeCacheService;
     private final EmployeeEventService employeeEventService;
@@ -400,6 +406,42 @@ public class EmployeeServiceImpl implements EmployeeService {
         response.setEffectiveDate(request.getEffectiveDate());
 
         return response;
+    }
+
+    @Override
+    public EmployeeStatisticsResponse getEmployeeStatistics(EmployeeStatisticsRequest request) {
+        // 1. Xử lý thời gian thực tế từ chuỗi period (yyyy-MM)
+        YearMonth ym = YearMonth.parse(request.getPeriod());
+        LocalDate startDate = ym.atDay(1);
+        LocalDate endDate = ym.atEndOfMonth();
+
+        UUID deptId = (request.getDepartmentId() != null) ? UUID.fromString(request.getDepartmentId()) : null;
+
+        // 2. Truy vấn dữ liệu THẬT từ DB
+        long activeEmps = employeeRepository.countActiveEmployees(deptId);
+        long newHires = employeeRepository.countNewHires(startDate, endDate, deptId);
+        BigDecimal totalOT = attendanceRepository.sumOvertimeHours(startDate, endDate, deptId);
+        long actualWorkDays = attendanceRepository.countActualWorkDays(startDate, endDate, deptId);
+
+        // 3. Tính toán Tỷ lệ chuyên cần (Attendance Rate)
+        // Công thức thực tế: (Tổng lượt đi làm thực tế) / (Tổng nhân viên * Số ngày làm
+        // việc định mức)
+        double attendanceRate = 0.0;
+        int workingDaysInMonth = 26; // Giả định định mức 26 ngày/tháng
+        if (activeEmps > 0) {
+            long potentialWorkDays = activeEmps * workingDaysInMonth;
+            attendanceRate = ((double) actualWorkDays / potentialWorkDays) * 100;
+        }
+
+        // 4. Trả về Response
+        return EmployeeStatisticsResponse.builder()
+                .totalEmployees((int) activeEmps)
+                .activeEmployees((int) activeEmps)
+                .newHires((int) newHires)
+                .resignations(0) // Cần thêm query vào bảng Employee với status 'RESIGNED' và ngày nghỉ trong kỳ
+                .attendanceRate(Math.round(attendanceRate * 100.0) / 100.0)
+                .totalOvertimeHours(totalOT != null ? totalOT : BigDecimal.ZERO)
+                .build();
     }
 
 }

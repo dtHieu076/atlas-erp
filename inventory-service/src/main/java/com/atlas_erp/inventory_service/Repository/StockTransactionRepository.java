@@ -1,5 +1,6 @@
 package com.atlas_erp.inventory_service.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,4 +29,18 @@ public interface StockTransactionRepository
                 HAVING SUM(t.quantity) > 0
             """)
     List<StockBalanceDto> calculateCurrentStockByWarehouse(@Param("warehouseId") UUID warehouseId);
+
+    @Query("""
+                SELECT COUNT(DISTINCT st.itemId)
+                FROM StockTransactionEntity st
+                WHERE st.warehouseId = :warehouseId
+            """)
+    Integer countDistinctItems(UUID warehouseId);
+
+    @Query("""
+                SELECT COALESCE(SUM(st.quantity), 0)
+                FROM StockTransactionEntity st
+                WHERE st.warehouseId = :warehouseId
+            """)
+    BigDecimal sumQuantity(UUID warehouseId);
 }

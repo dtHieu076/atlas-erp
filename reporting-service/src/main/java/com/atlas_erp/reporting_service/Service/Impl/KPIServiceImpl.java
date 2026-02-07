@@ -9,7 +9,7 @@ import java.util.Collections;
 @Service
 public class KPIServiceImpl implements KPIService {
 
-    @Override
+    @Override // Chưa cần gấp
     public KPIListResponse getKPIs(KPIListRequest request) {
 
         KPIListResponse response = new KPIListResponse();

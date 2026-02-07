@@ -56,4 +56,9 @@ public class EmployeeController {
             @RequestBody EmployeeTransferRequest request) {
         return employeeService.transferEmployee(id, request);
     }
+
+    @GetMapping("/statistics/summary")
+    public EmployeeStatisticsResponse getEmployeeStatistics(EmployeeStatisticsRequest request) {
+        return employeeService.getEmployeeStatistics(request);
+    }
 }
