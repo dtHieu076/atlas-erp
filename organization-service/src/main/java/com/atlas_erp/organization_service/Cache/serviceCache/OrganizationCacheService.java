@@ -2,6 +2,8 @@ package com.atlas_erp.organization_service.Cache.serviceCache;
 
 import com.atlas_erp.organization_service.Dto.Response.Organization.OrganizationDetailResponse;
 import com.atlas_erp.organization_service.Dto.Response.Organization.OrganizationListResponse;
+import com.atlas_erp.organization_service.Dto.Response.Organization.OrganizationTreeResponse;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -72,4 +74,27 @@ public class OrganizationCacheService {
         String key = "org:detail:" + id;
         redisTemplate.opsForValue().set(key, data, Duration.ofMinutes(60));
     }
+
+    // =====================================================
+    // TREE CACHE
+    // =====================================================
+
+    private static final String TREE_KEY = "org:tree";
+
+    public OrganizationTreeResponse getTree() {
+        try {
+            return (OrganizationTreeResponse) redisTemplate.opsForValue().get(TREE_KEY);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public void putTree(OrganizationTreeResponse data) {
+        redisTemplate.opsForValue().set(TREE_KEY, data, TTL);
+    }
+
+    public void evictTree() {
+        redisTemplate.delete(TREE_KEY);
+    }
+
 }

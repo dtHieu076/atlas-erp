@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class LogIngestServiceImpl implements LogIngestService {
 
-    @Override
+    @Override // Chưa cần thiết
     public CreateLogResponse ingestLog(CreateLogRequest request) {
 
         CreateLogResponse response = new CreateLogResponse();

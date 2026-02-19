@@ -4,6 +4,8 @@ import com.atlas_erp.organization_service.Dto.Request.Organization.*;
 import com.atlas_erp.organization_service.Dto.Response.Organization.*;
 import com.atlas_erp.organization_service.Service.OrganizationService;
 import lombok.RequiredArgsConstructor;
+import com.atlas_erp.organization_service.Dto.Response.ApiResponse;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -24,6 +26,13 @@ public class OrganizationController {
     public CreateOrganizationResponse createOrganization(
             @RequestBody CreateOrganizationRequest request) {
         return organizationService.createOrganization(request);
+    }
+
+    @GetMapping("/tree")
+    public ResponseEntity<ApiResponse<OrganizationTreeResponse>> getTree() {
+        return ResponseEntity.ok(
+                ApiResponse.success("Fetch organization tree successfully",
+                        organizationService.getOrganizationTree()));
     }
 
     @PutMapping("/{id}")

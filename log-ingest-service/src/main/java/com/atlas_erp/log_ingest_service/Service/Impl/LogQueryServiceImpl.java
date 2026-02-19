@@ -9,7 +9,7 @@ import java.util.*;
 @Service
 public class LogQueryServiceImpl implements LogQueryService {
 
-    @Override
+    @Override // Chưa cần thiết
     public LogSearchResponse searchApplicationLogs(
             LogSearchRequest request) {
 

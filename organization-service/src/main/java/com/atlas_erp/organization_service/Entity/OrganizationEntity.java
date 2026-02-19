@@ -10,14 +10,20 @@ import java.time.Instant;
 @Table(name = "organization")
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OrganizationEntity {
 
     @Id
     @GeneratedValue
     private UUID id;
 
+    @Column(nullable = false, length = 50)
     private String code;
+
+    @Column(nullable = false, length = 255)
     private String name;
+
     private String taxCode;
     private String address;
     private String legalRepresentative;
@@ -25,8 +31,14 @@ public class OrganizationEntity {
     private LocalDate validFrom;
     private LocalDate validTo;
 
-    private String status;
+    @Column(nullable = false)
+    private String status; // ACTIVE | INACTIVE
 
     private Instant createdAt;
     private UUID createdBy;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = Instant.now();
+    }
 }

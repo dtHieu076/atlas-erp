@@ -62,10 +62,10 @@ public class DepartmentServiceImpl implements DepartmentService {
         List<DepartmentItemDTO> dtoList = deptPage.getContent().stream()
                 .map(entity -> {
                     DepartmentItemDTO dto = new DepartmentItemDTO();
-                    dto.setId(entity.getId().toString());
+                    dto.setId(entity.getId());
                     dto.setCode(entity.getCode());
                     dto.setName(entity.getName());
-                    dto.setPlantId(entity.getPlantId().toString());
+                    dto.setPlantId(entity.getPlantId());
                     // Logic status: Kiểm tra ngày hiệu lực (validTo)
                     String status = (entity.getValidTo() == null || entity.getValidTo().isAfter(LocalDate.now()))
                             ? "ACTIVE"

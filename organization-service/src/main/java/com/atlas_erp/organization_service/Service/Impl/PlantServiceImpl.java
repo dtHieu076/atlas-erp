@@ -59,11 +59,11 @@ public class PlantServiceImpl implements PlantService {
         List<PlantItemDTO> dtoList = plantPage.getContent().stream()
                 .map(entity -> {
                     PlantItemDTO dto = new PlantItemDTO();
-                    dto.setId(entity.getId().toString());
+                    dto.setId(entity.getId());
                     dto.setCode(entity.getCode());
                     dto.setName(entity.getName());
-                    dto.setOrganizationId(entity.getOrganizationId().toString());
-                    dto.setAddress(entity.getLocation()); // Map location sang address
+                    dto.setOrganizationId(entity.getOrganizationId());
+                    dto.setAddress(entity.getAddress()); // Map location sang address
                     // Giả sử status được lấy từ logic nghiệp vụ hoặc entity
                     dto.setStatus("ACTIVE");
                     return dto;
@@ -104,7 +104,7 @@ public class PlantServiceImpl implements PlantService {
         plant.setOrganizationId(orgId);
         plant.setCode(request.getCode());
         plant.setName(request.getName());
-        plant.setLocation(request.getAddress());
+        plant.setAddress(request.getAddress());
         // Thiết lập các giá trị mặc định nếu cần
         plant.setValidFrom(LocalDate.now());
 

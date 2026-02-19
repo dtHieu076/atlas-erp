@@ -9,7 +9,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "department")
 @Data
-@Builder // Hỗ trợ tạo object nhanh: DepartmentEntity.builder().name("QC").build();
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class DepartmentEntity {
@@ -29,24 +29,18 @@ public class DepartmentEntity {
 
     private String costCenterCode;
 
+    @Column(nullable = false)
+    private String status; // ACTIVE | INACTIVE
+
     private LocalDate validFrom;
     private LocalDate validTo;
 
-    // --- CÁC TRƯỜNG BỔ SUNG QUAN TRỌNG ---
+    private Instant createdAt;
+    private UUID createdBy;
 
-    @Column(name = "created_at", updatable = false)
-    private Instant createdAt; // Dùng Instant để chuẩn hóa múi giờ quốc tế (UTC)
-
-    @Column(name = "created_by")
-    private UUID createdBy; // Lưu userId người tạo để Audit
-
-    @Column(name = "updated_at")
     private Instant updatedAt;
-
-    @Column(name = "updated_by")
     private UUID updatedBy;
 
-    // Tự động gán thời gian khi insert/update
     @PrePersist
     protected void onCreate() {
         createdAt = Instant.now();
