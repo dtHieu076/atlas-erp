@@ -2,6 +2,7 @@ package com.atlas_erp.iam_service.Service.Impl;
 
 import com.atlas_erp.iam_service.Cache.serviceCache.UserCacheService;
 import com.atlas_erp.iam_service.Dto.UserDataScopeDto;
+import com.atlas_erp.iam_service.Dto.UserDto;
 import com.atlas_erp.iam_service.Dto.UserRoleDto;
 import com.atlas_erp.iam_service.Dto.Request.User.*;
 import com.atlas_erp.iam_service.Dto.Response.BaseSuccessResponse;
@@ -9,17 +10,11 @@ import com.atlas_erp.iam_service.Dto.Response.User.*;
 import com.atlas_erp.iam_service.Entity.AppUserEntity;
 import com.atlas_erp.iam_service.Entity.RoleEntity;
 import com.atlas_erp.iam_service.Entity.UserDataScopeEntity;
-import com.atlas_erp.iam_service.Entity.UserIdentityEntity;
 import com.atlas_erp.iam_service.Entity.UserRoleEntity;
-import com.atlas_erp.iam_service.Event.dtoEvent.UserAccountLockedEvent;
-import com.atlas_erp.iam_service.Event.dtoEvent.UserAccountUnlockedEvent;
-import com.atlas_erp.iam_service.Event.dtoEvent.UserCreatedEvent;
 import com.atlas_erp.iam_service.Event.dtoEvent.UserRoleAssignedEvent;
-import com.atlas_erp.iam_service.Event.dtoEvent.UserStatusUpdatedEvent;
 import com.atlas_erp.iam_service.Event.serviceEvent.UserEventService;
 import com.atlas_erp.iam_service.Repository.AppUserRepository;
 import com.atlas_erp.iam_service.Repository.RoleRepository;
-import com.atlas_erp.iam_service.Repository.UserIdentityRepository;
 import com.atlas_erp.iam_service.Repository.UserRoleRepository;
 import com.atlas_erp.iam_service.Repository.UserDataScopeRepository;
 import com.atlas_erp.iam_service.Service.UserService;
@@ -32,18 +27,73 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor // Lombok sẽ tạo Constructor cho tất cả các field 'final'
 public class UserServiceImpl implements UserService {
 
-    private final UserIdentityRepository userIdentityRepository;
+    // private final UserIdentityRepository userIdentityRepository;
     private final AppUserRepository appUserRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final UserEventService userEventService;
     private final UserCacheService userCacheService;
     private final UserDataScopeRepository userDataScopeRepository;
+
+    @Override
+    public List<UserDto> getAllUsers() {
+
+        return appUserRepository.findAll()
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void toggleLock(UUID userId) {
+
+        AppUserEntity user = appUserRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
+        if (user.getStatus() == AppUserEntity.UserStatus.ACTIVE) {
+            user.setStatus(AppUserEntity.UserStatus.LOCKED);
+        } else {
+            user.setStatus(AppUserEntity.UserStatus.ACTIVE);
+        }
+
+        appUserRepository.save(user);
+    }
+
+    private UserDto mapToDto(AppUserEntity entity) {
+
+        return UserDto.builder()
+                .id(entity.getId())
+                .employeeId(entity.getEmployeeId())
+                .username(entity.getUsername())
+                .status(entity.getStatus().name())
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void updateUserRoles(UUID userId, List<UUID> roleIds) {
+
+        userRoleRepository.deleteByUserId(userId);
+
+        List<UserRoleEntity> newRelations = roleIds.stream()
+                .map(roleId -> {
+                    UserRoleEntity ur = new UserRoleEntity();
+                    ur.setUserId(userId);
+                    ur.setRoleId(roleId);
+                    return ur;
+                })
+                .collect(Collectors.toList());
+
+        userRoleRepository.saveAll(newRelations);
+    }
 
     @Override
     public UserListResponse searchUsers(UserSearchRequest request) {
@@ -53,87 +103,88 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public CreateUserResponse createUser(CreateUserRequest request) {
-        // 1. Validate input
-        if (request.getGoogleUid() == null || request.getGoogleUid().isBlank()) {
-            throw new IllegalArgumentException("googleUid is required");
-        }
+        // // 1. Validate input
+        // if (request.getGoogleUid() == null || request.getGoogleUid().isBlank()) {
+        // throw new IllegalArgumentException("googleUid is required");
+        // }
 
-        if (request.getEmail() == null || request.getEmail().isBlank()) {
-            throw new IllegalArgumentException("email is required");
-        }
+        // if (request.getEmail() == null || request.getEmail().isBlank()) {
+        // throw new IllegalArgumentException("email is required");
+        // }
 
-        // 2. Check identity already exists
-        userIdentityRepository
-                .findByProviderAndProviderUid("GOOGLE", request.getGoogleUid())
-                .ifPresent(i -> {
-                    throw new IllegalStateException("Google account already registered");
-                });
+        // // 2. Check identity already exists
+        // userIdentityRepository
+        // .findByProviderAndProviderUid("GOOGLE", request.getGoogleUid())
+        // .ifPresent(i -> {
+        // throw new IllegalStateException("Google account already registered");
+        // });
 
-        // 3. Create AppUser
-        AppUserEntity user = AppUserEntity.builder()
-                .employeeId(
-                        request.getEmployeeId() != null
-                                ? UUID.fromString(request.getEmployeeId())
-                                : null)
-                .status(
-                        request.getStatus() != null
-                                ? request.getStatus()
-                                : "ACTIVE")
-                .createdAt(Instant.now())
-                .build();
+        // // 3. Create AppUser
+        // AppUserEntity user = AppUserEntity.builder()
+        // .employeeId(
+        // request.getEmployeeId() != null
+        // ? UUID.fromString(request.getEmployeeId())
+        // : null)
+        // .status(
+        // request.getStatus() != null
+        // ? request.getStatus()
+        // : "ACTIVE")
+        // .createdAt(Instant.now())
+        // .build();
 
-        user = appUserRepository.save(user);
+        // user = appUserRepository.save(user);
 
-        // 4. Create UserIdentity (GOOGLE)
-        UserIdentityEntity identity = new UserIdentityEntity();
-        identity.setUserId(user.getId());
-        identity.setProvider("GOOGLE");
-        identity.setProviderUid(request.getGoogleUid());
-        identity.setEmail(request.getEmail());
+        // // 4. Create UserIdentity (GOOGLE)
+        // UserIdentityEntity identity = new UserIdentityEntity();
+        // identity.setUserId(user.getId());
+        // identity.setProvider("GOOGLE");
+        // identity.setProviderUid(request.getGoogleUid());
+        // identity.setEmail(request.getEmail());
 
-        userIdentityRepository.save(identity);
+        // userIdentityRepository.save(identity);
 
-        // 5. Emit event: iam.user.created
-        UserCreatedEvent event = UserCreatedEvent.builder()
-                .userId(user.getId())
-                .employeeId(user.getEmployeeId())
-                .status(user.getStatus())
-                .createdAt(user.getCreatedAt())
-                .build();
+        // // 5. Emit event: iam.user.created
+        // UserCreatedEvent event = UserCreatedEvent.builder()
+        // .userId(user.getId())
+        // .employeeId(user.getEmployeeId())
+        // .status(user.getStatus())
+        // .createdAt(user.getCreatedAt())
+        // .build();
 
-        userEventService.publishUserCreated(event);
+        // userEventService.publishUserCreated(event);
 
-        // 6. Response
-        return new CreateUserResponse(user.getId().toString());
+        // // 6. Response
+        // return new CreateUserResponse(user.getId().toString());
+        return new CreateUserResponse(UUID.randomUUID().toString());
     }
 
     @Override
     @Transactional
     public BaseSuccessResponse updateStatus(UUID userId, UpdateUserStatusRequest request) {
 
-        // 1. Validate input
-        if (request.getStatus() == null || request.getStatus().isBlank()) {
-            throw new IllegalArgumentException("status is required");
-        }
+        // // 1. Validate input
+        // if (request.getStatus() == null || request.getStatus().isBlank()) {
+        // throw new IllegalArgumentException("status is required");
+        // }
 
-        // 2. Load AppUserEntity
-        AppUserEntity user = appUserRepository.findById(userId)
-                .orElseThrow(() -> new IllegalStateException("User not found"));
+        // // 2. Load AppUserEntity
+        // AppUserEntity user = appUserRepository.findById(userId)
+        // .orElseThrow(() -> new IllegalStateException("User not found"));
 
-        // 3. Update status
-        user.setStatus(request.getStatus());
+        // // 3. Update status
+        // user.setStatus(request.getStatus());
 
-        // 4. Save
-        appUserRepository.save(user);
+        // // 4. Save
+        // appUserRepository.save(user);
 
-        // 5. Publish event
-        UserStatusUpdatedEvent event = UserStatusUpdatedEvent.builder()
-                .userId(user.getId())
-                .status(user.getStatus())
-                .updatedAt(Instant.now())
-                .build();
+        // // 5. Publish event
+        // UserStatusUpdatedEvent event = UserStatusUpdatedEvent.builder()
+        // .userId(user.getId())
+        // .status(user.getStatus())
+        // .updatedAt(Instant.now())
+        // .build();
 
-        userEventService.publishUserStatusUpdated(event);
+        // userEventService.publishUserStatusUpdated(event);
 
         // 6. Response
         return BaseSuccessResponse.success();
@@ -142,32 +193,34 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public BaseSuccessResponse lockUser(UUID userId, LockUserRequest request) {
-        // 1. Tìm thông tin danh tính của User
-        // Giả sử mỗi user có 1 identity chính, nếu có nhiều bạn cần findByUserIdIn hoặc
-        // logic tương đương
-        UserIdentityEntity identity = userIdentityRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User identity not found for ID: " + userId));
+        // // 1. Tìm thông tin danh tính của User
+        // // Giả sử mỗi user có 1 identity chính, nếu có nhiều bạn cần findByUserIdIn
+        // hoặc
+        // // logic tương đương
+        // UserIdentityEntity identity = userIdentityRepository.findByUserId(userId)
+        // .orElseThrow(() -> new ResourceNotFoundException("User identity not found for
+        // ID: " + userId));
 
-        // 2. Cập nhật trạng thái khóa
-        identity.setLocked(true);
-        identity.setLockReason(request.getReason());
-        identity.setLockedAt(Instant.now());
+        // // 2. Cập nhật trạng thái khóa
+        // identity.setLocked(true);
+        // identity.setLockReason(request.getReason());
+        // identity.setLockedAt(Instant.now());
 
-        userIdentityRepository.save(identity);
+        // userIdentityRepository.save(identity);
 
-        // 2. Tạo Event với tên có ý nghĩa
-        // Trong file UserServiceImpl.java
-        UserAccountLockedEvent event = UserAccountLockedEvent.builder()
-                .userId(userId)
-                .email(identity.getEmail())
-                .reason(request.getReason())
-                // Lấy giá trị từ Optional, nếu không có thì trả về null
-                .lockedBy(SecurityUtils.getCurrentUserId().orElse(null))
-                .lockedAt(Instant.now())
-                .build();
+        // // 2. Tạo Event với tên có ý nghĩa
+        // // Trong file UserServiceImpl.java
+        // UserAccountLockedEvent event = UserAccountLockedEvent.builder()
+        // .userId(userId)
+        // .email(identity.getEmail())
+        // .reason(request.getReason())
+        // // Lấy giá trị từ Optional, nếu không có thì trả về null
+        // .lockedBy(SecurityUtils.getCurrentUserId().orElse(null))
+        // .lockedAt(Instant.now())
+        // .build();
 
-        // 3. Publish
-        userEventService.publishUserLocked(event);
+        // // 3. Publish
+        // userEventService.publishUserLocked(event);
 
         return BaseSuccessResponse.success();
     }
@@ -175,40 +228,48 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UnlockUserResponse unlockUser(UUID userId, UnlockUserRequest request) {
-        // 1. Load UserIdentityEntity
-        UserIdentityEntity identity = userIdentityRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User identity not found for ID: " + userId));
+        // // 1. Load UserIdentityEntity
+        // UserIdentityEntity identity = userIdentityRepository.findByUserId(userId)
+        // .orElseThrow(() -> new ResourceNotFoundException("User identity not found for
+        // ID: " + userId));
 
-        // 2. Lấy ID người thực hiện (Admin) từ SecurityUtils
-        UUID adminId = SecurityUtils.getCurrentUserId().orElse(null);
+        // // 2. Lấy ID người thực hiện (Admin) từ SecurityUtils
+        // UUID adminId = SecurityUtils.getCurrentUserId().orElse(null);
 
-        // 3. Cập nhật trạng thái mở khóa
-        identity.setLocked(false);
-        identity.setLockReason(null); // Xóa lý do khóa cũ
-        // Nếu identity có các trường unlockedAt, unlockedBy thì set tại đây
-        // identity.setUnlockedAt(Instant.now());
-        // identity.setUnlockedBy(adminId);
+        // // 3. Cập nhật trạng thái mở khóa
+        // identity.setLocked(false);
+        // identity.setLockReason(null); // Xóa lý do khóa cũ
+        // // Nếu identity có các trường unlockedAt, unlockedBy thì set tại đây
+        // // identity.setUnlockedAt(Instant.now());
+        // // identity.setUnlockedBy(adminId);
 
-        userIdentityRepository.save(identity);
+        // userIdentityRepository.save(identity);
 
-        // 4. Publish Event cho Audit Service
-        UserAccountUnlockedEvent event = UserAccountUnlockedEvent.builder()
-                .userId(userId)
-                .email(identity.getEmail())
-                .reason(request.getReason())
-                .unlockedBy(adminId)
-                .unlockedAt(Instant.now())
-                .build();
+        // // 4. Publish Event cho Audit Service
+        // UserAccountUnlockedEvent event = UserAccountUnlockedEvent.builder()
+        // .userId(userId)
+        // .email(identity.getEmail())
+        // .reason(request.getReason())
+        // .unlockedBy(adminId)
+        // .unlockedAt(Instant.now())
+        // .build();
 
-        userEventService.publishUserUnlocked(event);
+        // userEventService.publishUserUnlocked(event);
 
-        // 5. Trả về Response
+        // // 5. Trả về Response
+        // return UnlockUserResponse.builder()
+        // .success(true)
+        // .userId(userId.toString())
+        // .status("ACTIVE")
+        // .unlockedAt(Instant.now())
+        // .unlockedBy(adminId != null ? adminId.toString() : "system")
+        // .build();
         return UnlockUserResponse.builder()
                 .success(true)
                 .userId(userId.toString())
                 .status("ACTIVE")
                 .unlockedAt(Instant.now())
-                .unlockedBy(adminId != null ? adminId.toString() : "system")
+                .unlockedBy("system")
                 .build();
     }
 
@@ -278,35 +339,43 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDetailResponse getUserDetail(UUID userId) {
-        // 1. Thử lấy từ Cache trước
-        UserDetailResponse cachedDetail = userCacheService.getUserDetailCache(userId);
-        if (cachedDetail != null) {
-            return cachedDetail;
-        }
+        // // 1. Thử lấy từ Cache trước
+        // UserDetailResponse cachedDetail =
+        // userCacheService.getUserDetailCache(userId);
+        // if (cachedDetail != null) {
+        // return cachedDetail;
+        // }
 
-        // 2. Cache Miss - Load thông tin cơ bản từ AppUser
-        AppUserEntity user = appUserRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        // // 2. Cache Miss - Load thông tin cơ bản từ AppUser
+        // AppUserEntity user = appUserRepository.findById(userId)
+        // .orElseThrow(() -> new ResourceNotFoundException("User not found: " +
+        // userId));
 
-        // 3. Load thông tin định danh từ UserIdentity
-        UserIdentityEntity identity = userIdentityRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Identity not found for user: " + userId));
+        // // 3. Load thông tin định danh từ UserIdentity
+        // UserIdentityEntity identity = userIdentityRepository.findByUserId(userId)
+        // .orElseThrow(() -> new ResourceNotFoundException("Identity not found for
+        // user: " + userId));
 
-        // 4. Map dữ liệu vào Response
-        UserDetailResponse response = UserDetailResponse.builder()
-                .userId(user.getId().toString())
-                .employeeId(user.getEmployeeId())
-                .username(identity.getEmail())
-                .email(identity.getEmail())
-                .status(user.getStatus())
-                .createdAt(user.getCreatedAt())
-                .lastLoginAt(null)
+        // // 4. Map dữ liệu vào Response
+        // UserDetailResponse response = UserDetailResponse.builder()
+        // .userId(user.getId().toString())
+        // .employeeId(user.getEmployeeId())
+        // .username(identity.getEmail())
+        // .email(identity.getEmail())
+        // .status(user.getStatus())
+        // .createdAt(user.getCreatedAt())
+        // .lastLoginAt(null)
+        // .build();
+
+        // // 5. Lưu vào Cache cho lần gọi sau
+        // userCacheService.putUserDetailCache(userId, response);
+
+        // return response;
+        return UserDetailResponse.builder()
+                .userId(userId.toString())
+                .employeeId(null)
+                .username("user-" + userId)
                 .build();
-
-        // 5. Lưu vào Cache cho lần gọi sau
-        userCacheService.putUserDetailCache(userId, response);
-
-        return response;
     }
 
     @Override

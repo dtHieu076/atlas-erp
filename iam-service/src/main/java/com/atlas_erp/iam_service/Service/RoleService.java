@@ -5,11 +5,14 @@ import com.atlas_erp.iam_service.Dto.Request.Role.CreateRoleRequest;
 import com.atlas_erp.iam_service.Dto.Response.BaseSuccessResponse;
 import com.atlas_erp.iam_service.Dto.Response.Role.RoleListResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface RoleService {
 
     RoleListResponse getAllRoles();
+
+    void updateRolePermissions(UUID roleId, List<UUID> permissionIds);
 
     UUID createRole(CreateRoleRequest request);
 

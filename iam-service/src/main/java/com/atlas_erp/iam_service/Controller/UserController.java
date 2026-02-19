@@ -1,12 +1,16 @@
 package com.atlas_erp.iam_service.Controller;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.atlas_erp.iam_service.Dto.Request.User.*;
 import com.atlas_erp.iam_service.Dto.Response.User.*;
+import com.atlas_erp.iam_service.Dto.Response.ApiResponse;
 import com.atlas_erp.iam_service.Dto.Response.BaseSuccessResponse;
 import com.atlas_erp.iam_service.Service.UserService;
-
+import com.atlas_erp.iam_service.Dto.UserDto;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -15,11 +19,6 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
-
-    @GetMapping
-    public UserListResponse search(UserSearchRequest request) {
-        return userService.searchUsers(request);
-    }
 
     @PostMapping
     public CreateUserResponse create(@RequestBody CreateUserRequest request) {
@@ -65,5 +64,34 @@ public class UserController {
     @GetMapping("/{id}/data-scopes")
     public UserDataScopeResponse dataScopes(@PathVariable UUID id) {
         return userService.getUserDataScopes(id);
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<UserDto>>> getAll() {
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Lấy danh sách người dùng thành công",
+                        userService.getAllUsers()));
+    }
+
+    @PutMapping("/{id}/lock")
+    public ResponseEntity<ApiResponse<Void>> toggleLock(@PathVariable UUID id) {
+
+        userService.toggleLock(id);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Cập nhật trạng thái khóa thành công", null));
+    }
+
+    @PutMapping("/{id}/roles")
+    public ResponseEntity<ApiResponse<Void>> updateRoles(
+            @PathVariable UUID id,
+            @RequestBody List<UUID> roleIds) {
+
+        userService.updateUserRoles(id, roleIds);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Cập nhật vai trò thành công", null));
     }
 }

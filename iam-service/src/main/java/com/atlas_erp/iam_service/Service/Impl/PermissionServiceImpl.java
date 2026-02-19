@@ -36,6 +36,11 @@ public class PermissionServiceImpl implements PermissionService {
     private final PermissionCacheService permissionCacheService;
 
     @Override
+    public List<PermissionEntity> getAll() {
+        return permissionRepository.findAll();
+    }
+
+    @Override
     public PermissionListResponse search(PermissionSearchRequest request) {
 
         List<PermissionEntity> entities;

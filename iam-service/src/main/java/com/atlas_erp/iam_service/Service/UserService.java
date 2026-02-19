@@ -3,6 +3,9 @@ package com.atlas_erp.iam_service.Service;
 import com.atlas_erp.iam_service.Dto.Request.User.*;
 import com.atlas_erp.iam_service.Dto.Response.BaseSuccessResponse;
 import com.atlas_erp.iam_service.Dto.Response.User.*;
+import com.atlas_erp.iam_service.Dto.UserDto;
+
+import java.util.List;
 import java.util.UUID;
 
 public interface UserService {
@@ -26,4 +29,10 @@ public interface UserService {
     UserRolesResponse getUserRoles(UUID userId);
 
     UserDataScopeResponse getUserDataScopes(UUID userId);
+
+    List<UserDto> getAllUsers();
+
+    void toggleLock(UUID userId);
+
+    void updateUserRoles(UUID userId, List<UUID> roleIds);
 }

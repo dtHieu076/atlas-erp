@@ -12,6 +12,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder
 public class CachedUser {
+
     private UUID userId;
     private String status;
     private UUID employeeId;
@@ -19,7 +20,7 @@ public class CachedUser {
     public static CachedUser from(AppUserEntity entity) {
         return CachedUser.builder()
                 .userId(entity.getId())
-                .status(entity.getStatus())
+                .status(entity.getStatus() != null ? entity.getStatus().name() : null)
                 .employeeId(entity.getEmployeeId())
                 .build();
     }

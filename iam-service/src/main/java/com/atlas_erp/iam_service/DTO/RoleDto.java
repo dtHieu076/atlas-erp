@@ -1,22 +1,25 @@
 package com.atlas_erp.iam_service.Dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import com.atlas_erp.iam_service.Entity.RoleEntity;
+import lombok.Getter;
+
+import java.util.List;
+import java.util.UUID;
 
 @Data
+@Builder
+@AllArgsConstructor
+@Getter
 public class RoleDto {
 
-    private String id;
+    private UUID id;
     private String code;
     private String name;
     private String description;
+    private String status;
 
-    public static RoleDto fromEntity(RoleEntity entity) {
-        RoleDto dto = new RoleDto();
-        dto.setId(entity.getId().toString());
-        dto.setCode(entity.getRoleCode());
-        dto.setName(entity.getRoleName());
-        dto.setDescription(null); // chưa có trong DB
-        return dto;
-    }
+    private List<UUID> permissionIds; // thêm
+    private String dataScope;
 }

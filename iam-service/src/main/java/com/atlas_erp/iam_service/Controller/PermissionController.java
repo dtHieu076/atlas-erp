@@ -1,9 +1,15 @@
 package com.atlas_erp.iam_service.Controller;
 
 import com.atlas_erp.iam_service.Dto.Request.Permission.PermissionSearchRequest;
+import com.atlas_erp.iam_service.Dto.Response.ApiResponse;
 import com.atlas_erp.iam_service.Dto.Response.Permission.PermissionListResponse;
+import com.atlas_erp.iam_service.Entity.PermissionEntity;
 import com.atlas_erp.iam_service.Service.PermissionService;
 import lombok.RequiredArgsConstructor;
+
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,6 +22,16 @@ public class PermissionController {
     @GetMapping
     public PermissionListResponse search(PermissionSearchRequest request) {
         return permissionService.search(request);
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<ApiResponse<List<PermissionEntity>>> getAll() {
+
+        List<PermissionEntity> data = permissionService.getAll();
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Lấy danh sách quyền thành công", data)
+        );
     }
 }
 

@@ -1,7 +1,6 @@
 package com.atlas_erp.iam_service.Cache.dtoCache;
 
 import com.atlas_erp.iam_service.Entity.UserIdentityEntity;
-
 import lombok.Builder;
 import lombok.Data;
 
@@ -20,7 +19,7 @@ public class CachedUserIdentity implements Serializable {
     public static CachedUserIdentity from(UserIdentityEntity identity) {
         return CachedUserIdentity.builder()
                 .userId(identity.getUserId())
-                .provider(identity.getProvider())
+                .provider(identity.getProvider() != null ? identity.getProvider().name() : null)
                 .providerUid(identity.getProviderUid())
                 .email(identity.getEmail())
                 .build();

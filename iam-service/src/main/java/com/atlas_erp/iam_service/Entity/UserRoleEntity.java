@@ -5,9 +5,7 @@ import java.util.UUID;
 import lombok.*;
 
 @Entity
-@Table(name = "user_role", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "user_id", "role_id" })
-})
+@Table(name = "user_role", uniqueConstraints = @UniqueConstraint(columnNames = { "user_id", "role_id" }))
 @Data
 public class UserRoleEntity {
 
@@ -15,6 +13,9 @@ public class UserRoleEntity {
     @GeneratedValue
     private UUID id;
 
+    @Column(nullable = false)
     private UUID userId;
+
+    @Column(nullable = false)
     private UUID roleId;
 }
