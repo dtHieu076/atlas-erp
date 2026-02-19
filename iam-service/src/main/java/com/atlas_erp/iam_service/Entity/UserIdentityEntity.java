@@ -20,18 +20,24 @@ public class UserIdentityEntity {
     @GeneratedValue
     private UUID id;
 
+    @Column(nullable = false)
     private UUID userId;
 
-    private String provider;
+    @Enumerated(EnumType.STRING)
+    private AuthProvider provider; // LOCAL | GOOGLE | AZURE
 
+    @Column(nullable = false)
     private String providerUid;
 
+    @Column(nullable = false)
     private String email;
 
-    @Builder.Default
-    private boolean locked = false; // Trạng thái khóa
+    private String lockReason;
+    private Instant lockedAt;
 
-    private String lockReason; // Lý do khóa
-
-    private Instant lockedAt; // Thời điểm khóa (để Audit sau này)
+    public enum AuthProvider {
+        LOCAL,
+        GOOGLE,
+        AZURE
+    }
 }

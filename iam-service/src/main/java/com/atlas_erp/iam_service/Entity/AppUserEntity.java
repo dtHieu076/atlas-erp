@@ -17,10 +17,32 @@ public class AppUserEntity {
     @GeneratedValue
     private UUID id;
 
-    // FK logic sang HR, KHÔNG JOIN
+    // Liên kết HR
+    @Column(nullable = false)
     private UUID employeeId;
 
-    private String status;
+    @Column(nullable = false, unique = true)
+    private String username;
+
+    @Enumerated(EnumType.STRING)
+    private UserStatus status; // ACTIVE | LOCKED
 
     private Instant createdAt;
+    private Instant updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = Instant.now();
+        updatedAt = Instant.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public enum UserStatus {
+        ACTIVE,
+        LOCKED
+    }
 }
