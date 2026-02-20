@@ -53,10 +53,10 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeEventService employeeEventService;
 
     @Override
-    public ApiResponse<List<EmployeeSummaryItemDTO>> getEmployeeSummaryBatch(EmployeeBatchRequest request) {
+    public ApiResponse<List<EmployeeSummaryItemDTO>> getEmployeeSummaryBatch(
+            EmployeeBatchRequest request) {
 
-        List<EmployeeEntity> employees = employeeRepository.findAllWithAssignmentsByIdIn(
-                request.getIds());
+        List<EmployeeEntity> employees = employeeRepository.findAllWithAssignmentsByIdIn(request.getIds());
 
         List<EmployeeSummaryItemDTO> result = employees.stream()
                 .map(employee -> {
@@ -80,11 +80,9 @@ public class EmployeeServiceImpl implements EmployeeService {
                 })
                 .toList();
 
-        return ApiResponse.<List<EmployeeSummaryItemDTO>>builder()
-                .success(true)
-                .message("Lấy danh sách nhân viên thành công")
-                .data(result)
-                .build();
+        return ApiResponse.success(
+                "Lấy danh sách nhân viên thành công",
+                result);
     }
 
     @Override

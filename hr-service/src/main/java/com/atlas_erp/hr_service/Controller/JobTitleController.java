@@ -18,14 +18,12 @@ public class JobTitleController {
 
     private final JobTitleService jobTitleService;
 
-    @GetMapping("/all")
+    @GetMapping
     public ResponseEntity<ApiResponse<List<JobTitleResponse>>> getAllJobTitle() {
-        return ResponseEntity.ok(
-                ApiResponse.<List<JobTitleResponse>>builder()
-                        .success(true)
-                        .message("Job titles retrieved successfully")
-                        .data(jobTitleService.getAllJobTitles())
-                        .build());
-    }
 
+        List<JobTitleResponse> data = jobTitleService.getAllJobTitles();
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Job titles retrieved successfully", data));
+    }
 }

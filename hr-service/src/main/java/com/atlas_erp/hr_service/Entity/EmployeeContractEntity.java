@@ -1,10 +1,11 @@
 package com.atlas_erp.hr_service.Entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-import java.util.UUID;
-import java.time.LocalDate;
+import lombok.Data;
+
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(name = "employee_contract")
@@ -12,12 +13,16 @@ import java.math.BigDecimal;
 public class EmployeeContractEntity {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
     private UUID employeeId;
 
-    private String contractType;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contract_template_id", nullable = false)
+    private ContractTemplateEntity contractTemplate;
+
+    @Column(nullable = false)
     private String contractNo;
 
     private LocalDate startDate;
@@ -26,5 +31,5 @@ public class EmployeeContractEntity {
     private BigDecimal baseSalary;
     private LocalDate signedDate;
 
-    private String status;
+    private String status; // ACTIVE, EXPIRED, TERMINATED
 }

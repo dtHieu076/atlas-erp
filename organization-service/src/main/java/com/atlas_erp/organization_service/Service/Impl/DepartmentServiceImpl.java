@@ -38,6 +38,20 @@ public class DepartmentServiceImpl implements DepartmentService {
     private final DepartmentEventService departmentEventService;
 
     @Override
+    public List<DepartmentSimpleResponse> getDepartmentsSimpleByIds(List<UUID> ids) {
+        List<DepartmentEntity> entities = departmentRepository.findAllById(ids);
+
+        return entities.stream()
+                .map(entity -> {
+                    DepartmentSimpleResponse dto = new DepartmentSimpleResponse();
+                    dto.setId(entity.getId());
+                    dto.setName(entity.getName());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public DepartmentListResponse getDepartments(DepartmentListRequest request) {
         // 1. Chuẩn hóa đầu vào
         UUID plantId = UUID.fromString(request.getPlantId());

@@ -3,6 +3,7 @@ package com.atlas_erp.organization_service.Service;
 import com.atlas_erp.organization_service.Dto.Request.Department.*;
 import com.atlas_erp.organization_service.Dto.Response.Department.*;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface DepartmentService {
@@ -12,4 +13,6 @@ public interface DepartmentService {
     CreateDepartmentResponse createDepartment(CreateDepartmentRequest request);
 
     DepartmentDetailResponse getDepartmentDetail(UUID id);
+
+    List<DepartmentSimpleResponse> getDepartmentsSimpleByIds(List<UUID> ids);
 }

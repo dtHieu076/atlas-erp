@@ -16,4 +16,6 @@ public interface EmployeeContractRepository
                         String status);// Lấy danh sách hợp đồng của nhân viên, ưu tiên hợp đồng mới nhất lên đầu
 
         List<EmployeeContractEntity> findByEmployeeIdOrderByStartDateDesc(UUID employeeId);
+
+        long countByContractTemplateId(UUID contractTemplateId);
 }
