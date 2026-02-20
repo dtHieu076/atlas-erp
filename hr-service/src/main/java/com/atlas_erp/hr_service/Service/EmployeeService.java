@@ -1,7 +1,10 @@
 package com.atlas_erp.hr_service.Service;
 
 import com.atlas_erp.hr_service.Dto.Request.Employee.*;
+import com.atlas_erp.hr_service.Dto.Response.ApiResponse;
 import com.atlas_erp.hr_service.Dto.Response.Employee.*;
+
+import java.util.List;
 import java.util.UUID;
 
 public interface EmployeeService {
@@ -20,4 +23,7 @@ public interface EmployeeService {
 
     // Thêm vào EmployeeService interface
     EmployeeStatisticsResponse getEmployeeStatistics(EmployeeStatisticsRequest request);
+
+    ApiResponse<List<EmployeeSummaryItemDTO>> getEmployeeSummaryBatch(EmployeeBatchRequest request);
+
 }

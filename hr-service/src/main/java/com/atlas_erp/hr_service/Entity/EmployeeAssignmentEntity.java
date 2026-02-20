@@ -14,15 +14,24 @@ public class EmployeeAssignmentEntity {
     @GeneratedValue
     private UUID id;
 
+    @Column(name = "employee_id")
     private UUID employeeId;
 
-    // reference Organization service
+    @Column(name = "department_id")
     private UUID departmentId;
+
+    @Column(name = "team_id")
     private UUID teamId;
 
+    @Column(name = "position")
     private String position;
+
+    @Column(name = "grade_level")
     private String gradeLevel;
 
+    @Column(name = "from_date")
     private LocalDate fromDate;
+
+    @Column(name = "to_date")
     private LocalDate toDate;
 }

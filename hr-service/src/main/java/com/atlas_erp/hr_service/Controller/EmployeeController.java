@@ -1,10 +1,13 @@
 package com.atlas_erp.hr_service.Controller;
 
 import com.atlas_erp.hr_service.Dto.Request.Employee.*;
+import com.atlas_erp.hr_service.Dto.Response.ApiResponse;
 import com.atlas_erp.hr_service.Dto.Response.Employee.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import com.atlas_erp.hr_service.Service.EmployeeService;
+
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -61,4 +64,12 @@ public class EmployeeController {
     public EmployeeStatisticsResponse getEmployeeStatistics(EmployeeStatisticsRequest request) {
         return employeeService.getEmployeeStatistics(request);
     }
+
+    @PostMapping("/summary/batch")
+    public ApiResponse<List<EmployeeSummaryItemDTO>> getEmployeeSummaryBatch(
+            @RequestBody EmployeeBatchRequest request) {
+
+        return employeeService.getEmployeeSummaryBatch(request);
+    }
+
 }

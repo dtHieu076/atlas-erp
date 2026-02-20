@@ -4,6 +4,7 @@ import com.atlas_erp.hr_service.Cache.serviceCache.EmployeeCacheService;
 import com.atlas_erp.hr_service.Dto.EmployeeAssignmentDTO;
 import com.atlas_erp.hr_service.Dto.EmployeeItemDTO;
 import com.atlas_erp.hr_service.Dto.Request.Employee.*;
+import com.atlas_erp.hr_service.Dto.Response.ApiResponse;
 import com.atlas_erp.hr_service.Dto.Response.Employee.*;
 import com.atlas_erp.hr_service.Entity.EmployeeAssignmentEntity;
 import com.atlas_erp.hr_service.Entity.EmployeeEntity;
@@ -31,6 +32,7 @@ import com.atlas_erp.hr_service.Event.dtoEvent.EmployeeMovedEvent;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -49,6 +51,41 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeAssignmentRepository assignmentRepository;
     private final EmployeeCacheService employeeCacheService;
     private final EmployeeEventService employeeEventService;
+
+    @Override
+    public ApiResponse<List<EmployeeSummaryItemDTO>> getEmployeeSummaryBatch(EmployeeBatchRequest request) {
+
+        List<EmployeeEntity> employees = employeeRepository.findAllWithAssignmentsByIdIn(
+                request.getIds());
+
+        List<EmployeeSummaryItemDTO> result = employees.stream()
+                .map(employee -> {
+
+                    UUID departmentId = employee.getAssignments()
+                            .stream()
+                            .filter(a -> a.getToDate() == null)
+                            .max(Comparator.comparing(a -> a.getFromDate() != null
+                                    ? a.getFromDate()
+                                    : LocalDate.MIN))
+                            .map(EmployeeAssignmentEntity::getDepartmentId)
+                            .orElse(null);
+
+                    return EmployeeSummaryItemDTO.builder()
+                            .id(employee.getId())
+                            .employeeCode(employee.getEmployeeCode())
+                            .fullName(employee.getFullName())
+                            .email(employee.getEmail())
+                            .departmentId(departmentId)
+                            .build();
+                })
+                .toList();
+
+        return ApiResponse.<List<EmployeeSummaryItemDTO>>builder()
+                .success(true)
+                .message("Lấy danh sách nhân viên thành công")
+                .data(result)
+                .build();
+    }
 
     @Override
     public EmployeeListResponse getEmployees(EmployeeListRequest request) {
