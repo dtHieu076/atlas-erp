@@ -14,4 +14,5 @@ public interface WorkflowStepRepository
         // Truy vấn các step có roleId nằm trong danh sách roles của user
         @Query("SELECT s FROM WorkflowStepEntity s WHERE s.roleId IN :roleIds")
         List<WorkflowStepEntity> findByRoleIdIn(List<UUID> roleIds);
+
 }

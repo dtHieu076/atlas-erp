@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.atlas_erp.workflow_service.Util.SecurityUtils;
 import com.atlas_erp.workflow_service.Cache.serviceCache.WorkflowCacheService;
-import com.atlas_erp.workflow_service.Client.IamClient;
+// import com.atlas_erp.workflow_service.Client.IamClient;
 import com.atlas_erp.workflow_service.Dto.External.UserRolesResponse;
 import com.atlas_erp.workflow_service.Dto.Request.WorkflowQuery.*;
 import com.atlas_erp.workflow_service.Dto.Response.WorkflowQuery.*;
@@ -37,7 +37,7 @@ public class WorkflowQueryServiceImpl implements WorkflowQueryService {
     private final WorkflowRepository workflowRepository;
     private final WorkflowStepRepository stepRepository;
     private final WorkflowCacheService cacheService;
-    private final IamClient iamClient;
+    // private final IamClient iamClient;
 
     @Override
     public WorkflowInstanceListResponse getWorkflowInstances(WorkflowInstanceListRequest request) {
@@ -96,79 +96,89 @@ public class WorkflowQueryServiceImpl implements WorkflowQueryService {
 
     @Override
     public AssignedWorkflowTaskResponse getAssignedTasksForCurrentUser() {
-        // 1. Lấy userId từ Token qua Utility
-        UUID userId = SecurityUtils.getCurrentUserId()
-                .orElseThrow(() -> new RuntimeException("Unauthorized: User ID not found in token"));
+        // // 1. Lấy userId từ Token qua Utility
+        // UUID userId = SecurityUtils.getCurrentUserId()
+        // .orElseThrow(() -> new RuntimeException("Unauthorized: User ID not found in
+        // token"));
 
-        // 2. Kiểm tra Cache (Sử dụng đúng tên hàm trong WorkflowCacheService)
-        AssignedWorkflowTaskResponse cached = cacheService.getAssignedTasksCache(userId.toString());
-        if (cached != null) {
-            log.info("🚀 Assigned Tasks Cache Hit for user: {}", userId);
-            return cached;
-        }
+        // // 2. Kiểm tra Cache (Sử dụng đúng tên hàm trong WorkflowCacheService)
+        // AssignedWorkflowTaskResponse cached =
+        // cacheService.getAssignedTasksCache(userId.toString());
+        // if (cached != null) {
+        // log.info("🚀 Assigned Tasks Cache Hit for user: {}", userId);
+        // return cached;
+        // }
 
-        // 3. Gọi IAM Service để lấy danh sách Roles của người dùng
-        UserRolesResponse userRoles = iamClient.getUserRoles(userId.toString());
-        if (userRoles == null || userRoles.getRoles() == null || userRoles.getRoles().isEmpty()) {
-            return new AssignedWorkflowTaskResponse(new ArrayList<>());
-        }
+        // // 3. Gọi IAM Service để lấy danh sách Roles của người dùng
+        // UserRolesResponse userRoles = iamClient.getUserRoles(userId.toString());
+        // if (userRoles == null || userRoles.getRoles() == null ||
+        // userRoles.getRoles().isEmpty()) {
+        // return new AssignedWorkflowTaskResponse(new ArrayList<>());
+        // }
 
-        // Chuyển đổi danh sách roleId từ String sang UUID để so sánh
-        List<UUID> roleIds = userRoles.getRoles().stream()
-                .map(r -> UUID.fromString(r.getRoleId()))
-                .collect(Collectors.toList());
+        // // Chuyển đổi danh sách roleId từ String sang UUID để so sánh
+        // List<UUID> roleIds = userRoles.getRoles().stream()
+        // .map(r -> UUID.fromString(r.getRoleId()))
+        // .collect(Collectors.toList());
 
-        // 4. Lấy các Workflow Instances đang trong trạng thái chờ duyệt
-        List<WorkflowInstanceEntity> activeInstances = instanceRepository.findByStatus("IN_PROGRESS");
+        // // 4. Lấy các Workflow Instances đang trong trạng thái chờ duyệt
+        // List<WorkflowInstanceEntity> activeInstances =
+        // instanceRepository.findByStatus("IN_PROGRESS");
 
-        // 5. Lọc và ánh xạ các task mà user có quyền phê duyệt
-        List<WorkflowTaskDto> tasks = new ArrayList<>();
+        // // 5. Lọc và ánh xạ các task mà user có quyền phê duyệt
+        // List<WorkflowTaskDto> tasks = new ArrayList<>();
 
-        for (WorkflowInstanceEntity instance : activeInstances) {
-            // Lấy toàn bộ cấu hình step của workflow này (nên được cache ở level cao hơn để
-            // tối ưu)
-            List<WorkflowStepEntity> workflowSteps = stepRepository
-                    .findByWorkflowIdOrderByStepOrderAsc(instance.getWorkflowId());
+        // for (WorkflowInstanceEntity instance : activeInstances) {
+        // // Lấy toàn bộ cấu hình step của workflow này (nên được cache ở level cao hơn
+        // để
+        // // tối ưu)
+        // List<WorkflowStepEntity> workflowSteps = stepRepository
+        // .findByWorkflowIdOrderByStepOrderAsc(instance.getWorkflowId());
 
-            // Tìm cấu hình của bước hiện tại (currentStep)
-            Optional<WorkflowStepEntity> currentStepOpt = workflowSteps.stream()
-                    .filter(s -> s.getStepOrder().equals(instance.getCurrentStep()))
-                    .findFirst();
+        // // Tìm cấu hình của bước hiện tại (currentStep)
+        // Optional<WorkflowStepEntity> currentStepOpt = workflowSteps.stream()
+        // .filter(s -> s.getStepOrder().equals(instance.getCurrentStep()))
+        // .findFirst();
 
-            if (currentStepOpt.isPresent()) {
-                WorkflowStepEntity stepConfig = currentStepOpt.get(); // Khai báo rõ ràng để hết lỗi
+        // if (currentStepOpt.isPresent()) {
+        // WorkflowStepEntity stepConfig = currentStepOpt.get(); // Khai báo rõ ràng để
+        // hết lỗi
 
-                // Kiểm tra xem user có Role phù hợp với bước này không
-                if (roleIds.contains(stepConfig.getRoleId())) {
-                    WorkflowTaskDto dto = new WorkflowTaskDto();
-                    dto.setTaskId(stepConfig.getId().toString());
-                    dto.setInstanceId(instance.getId().toString());
-                    dto.setStepName("Phê duyệt bước " + instance.getCurrentStep());
+        // // Kiểm tra xem user có Role phù hợp với bước này không
+        // if (roleIds.contains(stepConfig.getRoleId())) {
+        // WorkflowTaskDto dto = new WorkflowTaskDto();
+        // dto.setTaskId(stepConfig.getId().toString());
+        // dto.setInstanceId(instance.getId().toString());
+        // dto.setStepName("Phê duyệt bước " + instance.getCurrentStep());
 
-                    // Xác định thời điểm task được gán (mốc tính SLA)
-                    Date assignedAt = (instance.getUpdatedAt() != null) ? instance.getUpdatedAt() : new Date();
-                    dto.setAssignedAt(assignedAt);
+        // // Xác định thời điểm task được gán (mốc tính SLA)
+        // Date assignedAt = (instance.getUpdatedAt() != null) ? instance.getUpdatedAt()
+        // : new Date();
+        // dto.setAssignedAt(assignedAt);
 
-                    // TÍNH TOÁN DUE DATE DỰA TRÊN SLA (durationHours)
-                    Calendar cal = Calendar.getInstance();
-                    cal.setTime(assignedAt);
+        // // TÍNH TOÁN DUE DATE DỰA TRÊN SLA (durationHours)
+        // Calendar cal = Calendar.getInstance();
+        // cal.setTime(assignedAt);
 
-                    int hoursToAdd = (stepConfig.getDurationHours() != null) ? stepConfig.getDurationHours() : 24;
-                    cal.add(Calendar.HOUR, hoursToAdd);
+        // int hoursToAdd = (stepConfig.getDurationHours() != null) ?
+        // stepConfig.getDurationHours() : 24;
+        // cal.add(Calendar.HOUR, hoursToAdd);
 
-                    dto.setDueDate(cal.getTime());
+        // dto.setDueDate(cal.getTime());
 
-                    tasks.add(dto);
-                }
-            }
-        }
+        // tasks.add(dto);
+        // }
+        // }
+        // }
 
-        // 6. Tạo response và lưu vào Cache trước khi trả về
-        AssignedWorkflowTaskResponse response = new AssignedWorkflowTaskResponse();
-        response.setTasks(tasks);
+        // // 6. Tạo response và lưu vào Cache trước khi trả về
+        // AssignedWorkflowTaskResponse response = new AssignedWorkflowTaskResponse();
+        // response.setTasks(tasks);
 
-        cacheService.putAssignedTasksCache(userId.toString(), response);
+        // cacheService.putAssignedTasksCache(userId.toString(), response);
 
-        return response;
+        // return response;
+        return null; // Tạm thời trả về null vì phần lấy task đã bị comment để tập trung vào phần lấy
+                     // danh sách workflow
     }
 }

@@ -12,15 +12,25 @@ import java.util.UUID;
 public class WorkflowEntity {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
+    @Column(name = "code", nullable = false, unique = true, length = 50)
     private String code;
+
+    @Column(name = "name", nullable = false, length = 255)
     private String name;
+
+    @Column(name = "business_type", length = 100)
     private String businessType;
 
-    // Bổ sung các trường còn thiếu
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "status", length = 20)
     private String status; // ACTIVE, INACTIVE
+
+    @Column(name = "version")
     private Integer version;
 }
