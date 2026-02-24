@@ -1,12 +1,12 @@
 package com.atlas_erp.hr_service.Entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-import java.util.UUID;
+import lombok.Data;
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
-@Table(name = "employee_skill")
+@Table(name = "employee_skill", uniqueConstraints = @UniqueConstraint(columnNames = { "employee_id", "skill_id" }))
 @Data
 public class EmployeeSkillEntity {
 
@@ -14,12 +14,19 @@ public class EmployeeSkillEntity {
     @GeneratedValue
     private UUID id;
 
-    private UUID employeeId;
+    @ManyToOne
+    @JoinColumn(name = "employee_id", nullable = false)
+    private EmployeeEntity employee;
 
-    private String skillCode;
-    private String skillName;
-    private String skillLevel;
+    @ManyToOne
+    @JoinColumn(name = "skill_id", nullable = false)
+    private SkillEntity skill;
+
+    @Column(nullable = false)
+    private Integer currentLevel;
 
     private Boolean certified;
     private LocalDate certifiedDate;
+
+    private String note;
 }
