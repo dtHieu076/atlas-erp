@@ -2,20 +2,22 @@ package com.atlas_erp.hr_service.Service;
 
 import com.atlas_erp.hr_service.Dto.Request.Employee.*;
 import com.atlas_erp.hr_service.Dto.Response.ApiResponse;
-import com.atlas_erp.hr_service.Dto.Response.Employee.*;
+import com.atlas_erp.hr_service.Dto.Response.Employee.EmployeeProfileResponse;
+import com.atlas_erp.hr_service.Dto.Response.Employee.EmployeeResponse;
+import com.atlas_erp.hr_service.Dto.Response.Employee_v0.*;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface EmployeeService {
 
-    EmployeeListResponse getEmployees(EmployeeListRequest request);
+    List<EmployeeResponse> getAllEmployees();
+
+    EmployeeProfileResponse getEmployeeProfile(UUID id);
 
     CreateEmployeeResponse createEmployee(CreateEmployeeRequest request);
 
     UpdateEmployeeResponse updateEmployee(UUID id, UpdateEmployeeRequest request);
-
-    EmployeeDetailResponse getEmployeeDetail(UUID employeeId);
 
     EmployeeAssignmentHistoryResponse getAssignmentHistory(UUID employeeId);
 

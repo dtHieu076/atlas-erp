@@ -3,6 +3,10 @@ package com.atlas_erp.hr_service.Controller;
 import com.atlas_erp.hr_service.Dto.Request.Attendance.*;
 import com.atlas_erp.hr_service.Dto.Response.Attendance.*;
 import com.atlas_erp.hr_service.Service.AttendanceService;
+import com.atlas_erp.hr_service.Dto.Response.ApiResponse;
+import com.atlas_erp.hr_service.Dto.Response.Timesheet.TimesheetSummaryResponse;
+import com.atlas_erp.hr_service.Dto.Response.Timesheet.TimesheetDetailResponse;
+import org.springframework.http.ResponseEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -49,5 +53,27 @@ public class AttendanceController {
     public AttendanceSummaryResponse getSummary(
             AttendanceSummaryRequest request) {
         return attendanceService.getSummary(request);
+    }
+
+    // GET /attendance/timesheet/summary?month=&year=&departmentId=
+    @GetMapping("/timesheet/summary")
+    public ResponseEntity<ApiResponse<java.util.List<TimesheetSummaryResponse>>> getTimesheetSummary(
+            @RequestParam int month,
+            @RequestParam int year) {
+
+        java.util.List<TimesheetSummaryResponse> list = attendanceService.getTimesheetSummaries(month, year);
+        return ResponseEntity.ok(ApiResponse.success(list));
+    }
+
+    // GET /attendance/timesheet/detail?employeeId=&month=&year=
+    @GetMapping("/timesheet/detail")
+    public ResponseEntity<ApiResponse<TimesheetDetailResponse>> getTimesheetDetail(
+            @RequestParam String employeeId,
+            @RequestParam int month,
+            @RequestParam int year) {
+
+        TimesheetDetailResponse detail = attendanceService.getTimesheetDetail(java.util.UUID.fromString(employeeId),
+                month, year);
+        return ResponseEntity.ok(ApiResponse.success(detail));
     }
 }

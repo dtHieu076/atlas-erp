@@ -1,482 +1,476 @@
 package com.atlas_erp.hr_service.Service.Impl;
 
 import com.atlas_erp.hr_service.Cache.serviceCache.EmployeeCacheService;
-import com.atlas_erp.hr_service.Dto.EmployeeAssignmentDTO;
-import com.atlas_erp.hr_service.Dto.EmployeeItemDTO;
 import com.atlas_erp.hr_service.Dto.Request.Employee.*;
-import com.atlas_erp.hr_service.Dto.Response.ApiResponse;
 import com.atlas_erp.hr_service.Dto.Response.Employee.*;
+import com.atlas_erp.hr_service.Dto.Response.ApiResponse;
+import com.atlas_erp.hr_service.Dto.Response.Employee_v0.*;
 import com.atlas_erp.hr_service.Entity.EmployeeAssignmentEntity;
 import com.atlas_erp.hr_service.Entity.EmployeeEntity;
 import com.atlas_erp.hr_service.Repository.EmployeeRepository;
-import com.atlas_erp.hr_service.Repository.AttendanceRepository;
+import com.atlas_erp.hr_service.Repository.EmployeeSkillRepository;
 import com.atlas_erp.hr_service.Repository.EmployeeAssignmentRepository;
+import com.atlas_erp.hr_service.Repository.EmployeeContractRepository;
 import lombok.RequiredArgsConstructor;
-import java.util.Optional;
-import java.time.LocalDate;
-import java.time.YearMonth;
-
-import org.apache.kafka.common.errors.ResourceNotFoundException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import com.atlas_erp.hr_service.Service.EmployeeService;
-import com.atlas_erp.hr_service.Event.dtoEvent.EmployeeCreatedEvent;
-import com.atlas_erp.hr_service.Event.serviceEvent.EmployeeEventService;
-import com.atlas_erp.hr_service.Event.dtoEvent.EmployeeUpdatedEvent;
-import com.atlas_erp.hr_service.Event.dtoEvent.EmployeeMovedEvent;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
-import jakarta.persistence.criteria.Predicate;
-import org.springframework.util.StringUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class EmployeeServiceImpl implements EmployeeService {
 
-    private final EmployeeRepository employeeRepository;
-    private final AttendanceRepository attendanceRepository;
-    private final EmployeeAssignmentRepository assignmentRepository;
-    private final EmployeeCacheService employeeCacheService;
-    private final EmployeeEventService employeeEventService;
+        private final EmployeeRepository employeeRepository;
+        private final EmployeeAssignmentRepository assignmentRepository;
+        private final EmployeeContractRepository contractRepository;
+        private final EmployeeSkillRepository skillRepository;
 
-    @Override
-    public ApiResponse<List<EmployeeSummaryItemDTO>> getEmployeeSummaryBatch(
-            EmployeeBatchRequest request) {
+        private final EmployeeCacheService employeeCacheService;
+        // private final EmployeeEventService employeeEventService;
 
-        List<EmployeeEntity> employees = employeeRepository.findAllWithAssignmentsByIdIn(request.getIds());
+        @Override
+        public List<EmployeeResponse> getAllEmployees() {
 
-        List<EmployeeSummaryItemDTO> result = employees.stream()
-                .map(employee -> {
+                // 1. Check cache trước
+                // List<EmployeeResponse> cached = employeeCacheService.getAllEmployees();
 
-                    UUID departmentId = employee.getAssignments()
-                            .stream()
-                            .filter(a -> a.getToDate() == null)
-                            .max(Comparator.comparing(a -> a.getFromDate() != null
-                                    ? a.getFromDate()
-                                    : LocalDate.MIN))
-                            .map(EmployeeAssignmentEntity::getDepartmentId)
-                            .orElse(null);
+                // if (cached != null) {
+                // return cached;
+                // }
 
-                    return EmployeeSummaryItemDTO.builder()
-                            .id(employee.getId())
-                            .employeeCode(employee.getEmployeeCode())
-                            .fullName(employee.getFullName())
-                            .email(employee.getEmail())
-                            .departmentId(departmentId)
-                            .build();
-                })
-                .toList();
+                // 2. Nếu không có cache → query DB
+                List<EmployeeResponse> data = employeeRepository.findAll()
+                                .stream()
+                                .map(this::mapToEmployeeResponse)
+                                .toList();
 
-        return ApiResponse.success(
-                "Lấy danh sách nhân viên thành công",
-                result);
-    }
+                // 3. Lưu cache 60 phút
+                // employeeCacheService.putAllEmployees(data);
 
-    @Override
-    public EmployeeListResponse getEmployees(EmployeeListRequest request) {
-        // 1. Kiểm tra Cache Redis
-        String key = employeeCacheService.generateKey(request);
-        EmployeeListResponse cached = employeeCacheService.getEmployeeList(key);
-        if (cached != null)
-            return cached;
+                return data;
+        }
 
-        // 2. Thiết lập phân trang
-        int page = (request.getPage() != null && request.getPage() > 0) ? request.getPage() : 1;
-        int size = (request.getPageSize() != null && request.getPageSize() > 0) ? request.getPageSize() : 10;
-        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("employeeCode").ascending());
+        @Override
+        public EmployeeProfileResponse getEmployeeProfile(UUID id) {
 
-        // 3. Xây dựng bộ lọc động (Specification)
-        Specification<EmployeeEntity> spec = (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
+                // 1. Check cache
+                // EmployeeProfileResponse cached = employeeCacheService.getEmployeeProfile(id);
+                // if (cached != null) {
+                // return cached;
+                // }
 
-            // Lọc theo từ khóa (Mã NV, Họ tên, Email)
-            if (StringUtils.hasText(request.getKeyword())) {
-                String pattern = "%" + request.getKeyword().toLowerCase() + "%";
-                predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("employeeCode")), pattern),
-                        cb.like(cb.lower(root.get("fullName")), pattern),
-                        cb.like(cb.lower(root.get("email")), pattern)));
-            }
+                // 2. Load employee
+                EmployeeEntity employee = employeeRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Employee not found"));
 
-            // Lọc theo trạng thái
-            if (StringUtils.hasText(request.getStatus())) {
-                predicates.add(cb.equal(root.get("status"), request.getStatus()));
-            }
+                // ===== Manager =====
+                ManagerDTO managerDTO = null;
+                if (employee.getManagerId() != null) {
 
-            // Lọc theo Phòng ban/Tổ (Dựa trên bảng Assignment)
-            if (StringUtils.hasText(request.getDepartmentId()) || StringUtils.hasText(request.getTeamId())) {
-                // Join sang bảng EmployeeAssignmentEntity
-                Join<EmployeeEntity, EmployeeAssignmentEntity> assignment = root.join("assignments", JoinType.LEFT);
+                        EmployeeEntity manager = employeeRepository
+                                        .findById(employee.getManagerId())
+                                        .orElse(null);
 
-                // Chỉ lọc những assignment đang có hiệu lực (toDate là null hoặc chưa tới hạn)
-                predicates.add(cb.or(
-                        cb.isNull(assignment.get("toDate")),
-                        cb.greaterThanOrEqualTo(assignment.get("toDate"), LocalDate.now())));
+                        if (manager != null) {
 
-                if (StringUtils.hasText(request.getDepartmentId())) {
-                    predicates
-                            .add(cb.equal(assignment.get("departmentId"), UUID.fromString(request.getDepartmentId())));
+                                String managerJobTitle = assignmentRepository
+                                                .findTopByEmployeeIdAndToDateIsNullOrderByFromDateDesc(manager.getId())
+                                                .map(EmployeeAssignmentEntity::getJobTitleName)
+                                                .orElse(null);
+
+                                managerDTO = ManagerDTO.builder()
+                                                .id(manager.getId())
+                                                .fullName(manager.getFullName())
+                                                .jobTitleName(managerJobTitle)
+                                                .build();
+                        }
                 }
-                if (StringUtils.hasText(request.getTeamId())) {
-                    predicates.add(cb.equal(assignment.get("teamId"), UUID.fromString(request.getTeamId())));
+
+                // ===== Personal =====
+                EmployeeProfileResponse.PersonalInfo personal = EmployeeProfileResponse.PersonalInfo.builder()
+                                .dob(employee.getDob())
+                                .nationalId(employee.getNationalId())
+                                .permanentAddress(employee.getPermanentAddress())
+                                .currentAddress(employee.getCurrentAddress())
+                                .hometown(employee.getHometown())
+                                .personalEmail(employee.getPersonalEmail())
+                                .workEmail(employee.getWorkEmail())
+                                .phone(employee.getPhone())
+                                .maritalStatus(employee.getMaritalStatus())
+                                .dependentsCount(employee.getDependentsCount())
+                                .build();
+
+                // ===== Current Assignment (Job) =====
+                EmployeeAssignmentEntity currentAssignment = assignmentRepository
+                                .findTopByEmployeeIdAndToDateIsNullOrderByFromDateDesc(employee.getId())
+                                .orElse(null);
+
+                EmployeeProfileResponse.JobInfo job = null;
+
+                if (currentAssignment != null) {
+                        job = EmployeeProfileResponse.JobInfo.builder()
+                                        .departmentId(currentAssignment.getDepartmentId())
+                                        .departmentName(currentAssignment.getDepartmentName())
+                                        .teamId(currentAssignment.getTeamId())
+                                        .teamName(currentAssignment.getTeamName())
+                                        .jobTitleId(currentAssignment.getJobTitleId())
+                                        .jobTitleName(currentAssignment.getJobTitleName())
+                                        .gradeLevel(currentAssignment.getGradeLevel())
+                                        .employmentType(employee.getEmploymentType())
+                                        .joinDate(employee.getHireDate())
+                                        .probationEndDate(employee.getProbationEndDate())
+                                        .build();
                 }
-            }
 
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
+                // ===== History =====
+                List<AssignmentHistoryResponse> history = assignmentRepository.findByEmployeeId(employee.getId())
+                                .stream()
+                                .map(a -> AssignmentHistoryResponse.builder()
+                                                .departmentId(a.getDepartmentId())
+                                                .departmentName(a.getDepartmentName())
+                                                .jobTitleId(a.getJobTitleId())
+                                                .jobTitleName(a.getJobTitleName())
+                                                .fromDate(a.getFromDate())
+                                                .toDate(a.getToDate())
+                                                .changeReason(a.getChangeReason())
+                                                .build())
+                                .toList();
 
-        // 4. Truy vấn Database
-        Page<EmployeeEntity> employeePage = employeeRepository.findAll(spec, pageable);
+                // ===== Contracts =====
+                List<ContractResponse> contracts = contractRepository.findByEmployeeId(employee.getId())
+                                .stream()
+                                .map(c -> ContractResponse.builder()
+                                                .id(c.getId())
+                                                .contractTemplateId(c.getContractTemplateId())
+                                                .contractTemplateName(c.getContractTemplateName())
+                                                .contractNo(c.getContractNo())
+                                                .startDate(c.getStartDate())
+                                                .endDate(c.getEndDate())
+                                                .baseSalary(c.getBaseSalary())
+                                                .status(c.getStatus())
+                                                .build())
+                                .toList();
 
-        // 5. Mapping sang DTO
-        List<EmployeeItemDTO> dtoList = employeePage.getContent().stream()
-                .map(this::mapToItemDto)
-                .collect(Collectors.toList());
+                // ===== Skills =====
+                List<SkillResponse> skills = skillRepository.findByEmployeeId(employee.getId())
+                                .stream()
+                                .map(s -> SkillResponse.builder()
+                                                .skillId(s.getSkill().getId())
+                                                .skillName(s.getSkill().getName())
+                                                .level(s.getCurrentLevel())
+                                                .certified(s.getCertified())
+                                                .certifiedDate(s.getCertifiedDate())
+                                                .build())
+                                .toList();
 
-        EmployeeListResponse response = new EmployeeListResponse();
-        response.setList(dtoList);
-        response.setTotal(employeePage.getTotalElements());
+                // ===== Final build (ROOT CLEAN) =====
+                EmployeeProfileResponse profile = EmployeeProfileResponse.builder()
+                                .id(employee.getId())
+                                .employeeCode(employee.getEmployeeCode())
+                                .fullName(employee.getFullName())
+                                .avatarUrl(employee.getAvatarUrl())
+                                .gender(employee.getGender())
+                                .status(employee.getStatus())
+                                .manager(managerDTO)
+                                .personal(personal)
+                                .job(job)
+                                .history(history)
+                                .skills(skills)
+                                .contracts(contracts)
+                                .build();
 
-        // 6. Lưu kết quả vào Redis
-        employeeCacheService.putEmployeeList(key, response);
+                // Save cache
+                // employeeCacheService.putEmployeeProfile(id, profile);
 
-        return response;
-    }
-
-    private EmployeeItemDTO mapToItemDto(EmployeeEntity entity) {
-        EmployeeItemDTO dto = new EmployeeItemDTO();
-        dto.setId(entity.getId().toString());
-        dto.setEmployeeCode(entity.getEmployeeCode());
-        dto.setFullName(entity.getFullName());
-        dto.setGender(entity.getGender());
-        dto.setBirthDate(entity.getDob());
-        dto.setPhone(entity.getPhone());
-        dto.setEmail(entity.getEmail());
-        dto.setStatus(entity.getStatus());
-
-        // Tìm thông tin vị trí công tác hiện tại (Assignment)
-        // Giả sử trong EmployeeEntity bạn có: @OneToMany List<EmployeeAssignmentEntity>
-        // assignments
-        if (entity.getAssignments() != null) {
-            entity.getAssignments().stream()
-                    .filter(a -> a.getToDate() == null || a.getToDate().isAfter(LocalDate.now()))
-                    .findFirst()
-                    .ifPresent(a -> {
-                        dto.setDepartmentId(a.getDepartmentId().toString());
-                        dto.setTeamId(a.getTeamId() != null ? a.getTeamId().toString() : null);
-                        dto.setPosition(a.getPosition());
-                    });
+                return profile;
         }
 
-        return dto;
-    }
+        private EmployeeResponse mapToEmployeeResponse(EmployeeEntity e) {
 
-    @Override
-    @Transactional // Rất quan trọng: Đảm bảo tạo Employee và Assignment cùng thành công hoặc cùng
-                   // thất bại
-    public CreateEmployeeResponse createEmployee(CreateEmployeeRequest request) {
-        // 1. Kiểm tra mã nhân viên đã tồn tại chưa (Internal check)
-        if (employeeRepository.existsByEmployeeCode(request.getEmployeeCode())) {
-            throw new IllegalStateException("Mã nhân viên " + request.getEmployeeCode() + " đã tồn tại.");
+                // Lấy assignment hiện tại (toDate = null)
+                EmployeeAssignmentEntity current = assignmentRepository
+                                .findTopByEmployeeIdAndToDateIsNullOrderByFromDateDesc(e.getId())
+                                .orElse(null);
+
+                return EmployeeResponse.builder()
+                                .id(e.getId())
+                                .employeeCode(e.getEmployeeCode())
+                                .fullName(e.getFullName())
+                                .avatarUrl(e.getAvatarUrl())
+                                .gender(e.getGender())
+                                .departmentId(current != null ? current.getDepartmentId() : null)
+                                .departmentName(current != null ? current.getDepartmentName() : null)
+                                .teamId(current != null ? current.getTeamId() : null)
+                                .teamName(current != null ? current.getTeamName() : null)
+                                .jobTitleId(current != null ? current.getJobTitleId() : null)
+                                .jobTitleName(current != null ? current.getJobTitleName() : null)
+                                .gradeLevel(current != null ? current.getGradeLevel() : null)
+                                .hireDate(e.getHireDate())
+                                .employmentType(e.getEmploymentType())
+                                .status(e.getStatus())
+                                .phone(e.getPhone())
+                                .workEmail(e.getWorkEmail())
+                                .build();
         }
 
-        // 2. Tạo thực thể Employee (Thông tin cơ bản)
-        EmployeeEntity employee = new EmployeeEntity();
-        employee.setEmployeeCode(request.getEmployeeCode());
-        employee.setFullName(request.getFullName());
-        employee.setGender(request.getGender());
-        employee.setDob(request.getBirthDate());
-        employee.setPhone(request.getPhone());
-        employee.setEmail(request.getEmail());
-        employee.setHireDate(request.getJoinDate());
-        employee.setStatus(request.getStatus() != null ? request.getStatus() : "ACTIVE");
-        employee.setCreatedAt(Instant.now());
+        @Override
+        public ApiResponse<List<EmployeeSummaryItemDTO>> getEmployeeSummaryBatch(
+                        EmployeeBatchRequest request) {
 
-        employee = employeeRepository.save(employee);
+                // List<EmployeeEntity> employees =
+                // employeeRepository.findAllWithAssignmentsByIdIn(request.getIds());
 
-        // 3. Tạo thực thể Assignment (Thông tin vị trí công tác)
-        // ERP cần cái này để biết nhân viên thuộc phòng ban nào ngay khi vào công ty
-        EmployeeAssignmentEntity assignment = new EmployeeAssignmentEntity();
-        assignment.setEmployeeId(employee.getId());
-        assignment.setDepartmentId(UUID.fromString(request.getDepartmentId()));
-        if (request.getTeamId() != null) {
-            assignment.setTeamId(UUID.fromString(request.getTeamId()));
-        }
-        assignment.setPosition(request.getPosition());
-        assignment.setFromDate(request.getJoinDate()); // Ngày bắt đầu bổ nhiệm = ngày vào làm
+                // List<EmployeeSummaryItemDTO> result = employees.stream()
+                // .map(employee -> {
 
-        assignmentRepository.save(assignment);
+                // UUID departmentId = employee.getAssignments()
+                // .stream()
+                // .filter(a -> a.getToDate() == null)
+                // .max(Comparator.comparing(a -> a.getFromDate() != null
+                // ? a.getFromDate()
+                // : LocalDate.MIN))
+                // .map(EmployeeAssignmentEntity::getDepartmentId)
+                // .orElse(null);
 
-        // 4. Xóa Cache danh sách nhân viên (Vì có dữ liệu mới)
-        employeeCacheService.evictAllList();
+                // return EmployeeSummaryItemDTO.builder()
+                // .id(employee.getId())
+                // .employeeCode(employee.getEmployeeCode())
+                // .fullName(employee.getFullName())
+                // .email(employee.getEmail())
+                // .departmentId(departmentId)
+                // .build();
+                // })
+                // .toList();
 
-        // 5. Phát Event (Để Payroll/Audit/IAM xử lý bất đồng bộ)
-        EmployeeCreatedEvent event = EmployeeCreatedEvent.builder()
-                .employeeId(employee.getId())
-                .employeeCode(employee.getEmployeeCode())
-                .email(employee.getEmail())
-                .departmentId(assignment.getDepartmentId())
-                .teamId(assignment.getTeamId())
-                .joinDate(employee.getHireDate())
-                .build();
-
-        employeeEventService.publishEmployeeCreatedEvent(event);
-
-        // 6. Trả về kết quả
-        CreateEmployeeResponse response = new CreateEmployeeResponse();
-        response.setId(employee.getId().toString());
-        return response;
-    }
-
-    @Override
-    @Transactional
-    public UpdateEmployeeResponse updateEmployee(UUID id, UpdateEmployeeRequest request) {
-        // 1. Kiểm tra tồn tại
-        EmployeeEntity employee = employeeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên với ID: " + id));
-
-        // 2. Cập nhật thông tin cơ bản
-        employee.setFullName(request.getFullName());
-        employee.setPhone(request.getPhone());
-        employee.setEmail(request.getEmail());
-        employee.setStatus(request.getStatus());
-
-        employeeRepository.save(employee);
-
-        // 3. Xử lý điều chuyển bộ phận (Department/Team/Position)
-        // Lấy Assignment hiện tại (đang có hiệu lực)
-        Optional<EmployeeAssignmentEntity> currentAssignmentOpt = assignmentRepository.findAll().stream()
-                .filter(a -> a.getEmployeeId().equals(id)
-                        && (a.getToDate() == null || a.getToDate().isAfter(LocalDate.now())))
-                .findFirst();
-
-        if (currentAssignmentOpt.isPresent()) {
-            EmployeeAssignmentEntity current = currentAssignmentOpt.get();
-
-            // Kiểm tra xem có sự thay đổi về bộ phận không
-            boolean isChanged = !current.getDepartmentId().toString().equals(request.getDepartmentId())
-                    || (current.getTeamId() != null && !current.getTeamId().toString().equals(request.getTeamId()))
-                    || !current.getPosition().equals(request.getPosition());
-
-            if (isChanged) {
-                // Kết thúc assignment cũ
-                current.setToDate(LocalDate.now());
-                assignmentRepository.save(current);
-
-                // Tạo assignment mới (Bắt đầu từ ngày mai)
-                EmployeeAssignmentEntity newAssignment = new EmployeeAssignmentEntity();
-                newAssignment.setEmployeeId(id);
-                newAssignment.setDepartmentId(UUID.fromString(request.getDepartmentId()));
-                if (request.getTeamId() != null) {
-                    newAssignment.setTeamId(UUID.fromString(request.getTeamId()));
-                }
-                newAssignment.setPosition(request.getPosition());
-                newAssignment.setFromDate(LocalDate.now().plusDays(1));
-
-                assignmentRepository.save(newAssignment);
-            }
+                // return ApiResponse.success(
+                // "Lấy danh sách nhân viên thành công",
+                // result);
+                return null;
         }
 
-        // 4. Xóa Cache (List và Detail của nhân viên này)
-        employeeCacheService.evictAllList();
-        // employeeCacheService.evictDetail(id); // Nếu bạn có cache detail
+        @Override
+        @Transactional // Rất quan trọng: Đảm bảo tạo Employee và Assignment cùng thành công hoặc cùng
+                       // thất bại
+        public CreateEmployeeResponse createEmployee(CreateEmployeeRequest request) {
+                // // 1. Kiểm tra mã nhân viên đã tồn tại chưa (Internal check)
+                // if (employeeRepository.existsByEmployeeCode(request.getEmployeeCode())) {
+                // throw new IllegalStateException("Mã nhân viên " + request.getEmployeeCode() +
+                // " đã tồn tại.");
+                // }
 
-        // 5. Phát Event để IAM sync (ví dụ: đổi email hoặc lock tài khoản)
-        EmployeeUpdatedEvent event = EmployeeUpdatedEvent.builder()
-                .employeeId(id)
-                .fullName(employee.getFullName())
-                .email(employee.getEmail())
-                .status(employee.getStatus())
-                .departmentId(UUID.fromString(request.getDepartmentId()))
-                .build();
-        employeeEventService.publishEmployeeUpdatedEvent(event);
+                // // 2. Tạo thực thể Employee (Thông tin cơ bản)
+                // EmployeeEntity employee = new EmployeeEntity();
+                // employee.setEmployeeCode(request.getEmployeeCode());
+                // employee.setFullName(request.getFullName());
+                // employee.setGender(request.getGender());
+                // employee.setDob(request.getBirthDate());
+                // employee.setPhone(request.getPhone());
+                // employee.setEmail(request.getEmail());
+                // employee.setHireDate(request.getJoinDate());
+                // employee.setStatus(request.getStatus() != null ? request.getStatus() :
+                // "ACTIVE");
+                // employee.setCreatedAt(Instant.now());
 
-        return UpdateEmployeeResponse.success();
-    }
+                // employee = employeeRepository.save(employee);
 
-    @Override
-    public EmployeeDetailResponse getEmployeeDetail(UUID employeeId) {
-        // 1. THỬ LẤY TỪ CACHE TRƯỚC
-        EmployeeDetailResponse cached = employeeCacheService.getDetail(employeeId);
-        if (cached != null) {
-            return cached; // Nếu có trong Redis thì trả về luôn, không xuống DB
+                // // 3. Tạo thực thể Assignment (Thông tin vị trí công tác)
+                // // ERP cần cái này để biết nhân viên thuộc phòng ban nào ngay khi vào công ty
+                // EmployeeAssignmentEntity assignment = new EmployeeAssignmentEntity();
+                // assignment.setEmployeeId(employee.getId());
+                // assignment.setDepartmentId(UUID.fromString(request.getDepartmentId()));
+                // if (request.getTeamId() != null) {
+                // assignment.setTeamId(UUID.fromString(request.getTeamId()));
+                // }
+                // assignment.setPosition(request.getPosition());
+                // assignment.setFromDate(request.getJoinDate()); // Ngày bắt đầu bổ nhiệm =
+                // ngày vào làm
+
+                // assignmentRepository.save(assignment);
+
+                // // 4. Xóa Cache danh sách nhân viên (Vì có dữ liệu mới)
+                // employeeCacheService.evictAllList();
+
+                // // 5. Phát Event (Để Payroll/Audit/IAM xử lý bất đồng bộ)
+                // EmployeeCreatedEvent event = EmployeeCreatedEvent.builder()
+                // .employeeId(employee.getId())
+                // .employeeCode(employee.getEmployeeCode())
+                // .email(employee.getEmail())
+                // .departmentId(assignment.getDepartmentId())
+                // .teamId(assignment.getTeamId())
+                // .joinDate(employee.getHireDate())
+                // .build();
+
+                // employeeEventService.publishEmployeeCreatedEvent(event);
+
+                // // 6. Trả về kết quả
+                // CreateEmployeeResponse response = new CreateEmployeeResponse();
+                // response.setId(employee.getId().toString());
+                // return response;
+                return null;
         }
 
-        // 2. NẾU KHÔNG CÓ TRONG CACHE -> TRUY VẤN DATABASE
-        EmployeeEntity employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên với ID: " + employeeId));
+        @Override
+        @Transactional
+        public UpdateEmployeeResponse updateEmployee(UUID id, UpdateEmployeeRequest request) {
+                // // 1. Kiểm tra tồn tại
+                // EmployeeEntity employee = employeeRepository.findById(id)
+                // .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhân viên
+                // với ID: " + id));
 
-        // 3. MAPPING DỮ LIỆU
-        EmployeeDetailResponse response = new EmployeeDetailResponse();
-        response.setEmployeeId(employee.getId().toString());
-        response.setEmployeeCode(employee.getEmployeeCode());
-        response.setFullName(employee.getFullName());
-        response.setDateOfBirth(employee.getDob());
-        response.setGender(employee.getGender());
-        response.setPhone(employee.getPhone());
-        response.setEmail(employee.getEmail());
-        response.setStatus(employee.getStatus());
-        response.setHiredDate(employee.getHireDate());
+                // // 2. Cập nhật thông tin cơ bản
+                // employee.setFullName(request.getFullName());
+                // employee.setPhone(request.getPhone());
+                // employee.setEmail(request.getEmail());
+                // employee.setStatus(request.getStatus());
 
-        if (employee.getAssignments() != null) {
-            employee.getAssignments().stream()
-                    .filter(a -> a.getToDate() == null || a.getToDate().isAfter(LocalDate.now()))
-                    .findFirst()
-                    .ifPresent(a -> {
-                        response.setCurrentDepartmentId(a.getDepartmentId().toString());
-                        response.setCurrentTeamId(a.getTeamId() != null ? a.getTeamId().toString() : null);
-                    });
+                // employeeRepository.save(employee);
+
+                // // 3. Xử lý điều chuyển bộ phận (Department/Team/Position)
+                // // Lấy Assignment hiện tại (đang có hiệu lực)
+                // Optional<EmployeeAssignmentEntity> currentAssignmentOpt =
+                // assignmentRepository.findAll().stream()
+                // .filter(a -> a.getEmployeeId().equals(id)
+                // && (a.getToDate() == null || a.getToDate().isAfter(LocalDate.now())))
+                // .findFirst();
+
+                // if (currentAssignmentOpt.isPresent()) {
+                // EmployeeAssignmentEntity current = currentAssignmentOpt.get();
+
+                // // Kiểm tra xem có sự thay đổi về bộ phận không
+                // boolean isChanged =
+                // !current.getDepartmentId().toString().equals(request.getDepartmentId())
+                // || (current.getTeamId() != null &&
+                // !current.getTeamId().toString().equals(request.getTeamId()))
+                // || !current.getPosition().equals(request.getPosition());
+
+                // if (isChanged) {
+                // // Kết thúc assignment cũ
+                // current.setToDate(LocalDate.now());
+                // assignmentRepository.save(current);
+
+                // // Tạo assignment mới (Bắt đầu từ ngày mai)
+                // EmployeeAssignmentEntity newAssignment = new EmployeeAssignmentEntity();
+                // newAssignment.setEmployeeId(id);
+                // newAssignment.setDepartmentId(UUID.fromString(request.getDepartmentId()));
+                // if (request.getTeamId() != null) {
+                // newAssignment.setTeamId(UUID.fromString(request.getTeamId()));
+                // }
+                // newAssignment.setPosition(request.getPosition());
+                // newAssignment.setFromDate(LocalDate.now().plusDays(1));
+
+                // assignmentRepository.save(newAssignment);
+                // }
+                // }
+
+                // // 4. Xóa Cache (List và Detail của nhân viên này)
+                // employeeCacheService.evictAllList();
+                // // employeeCacheService.evictDetail(id); // Nếu bạn có cache detail
+
+                // // 5. Phát Event để IAM sync (ví dụ: đổi email hoặc lock tài khoản)
+                // EmployeeUpdatedEvent event = EmployeeUpdatedEvent.builder()
+                // .employeeId(id)
+                // .fullName(employee.getFullName())
+                // .email(employee.getEmail())
+                // .status(employee.getStatus())
+                // .departmentId(UUID.fromString(request.getDepartmentId()))
+                // .build();
+                // employeeEventService.publishEmployeeUpdatedEvent(event);
+
+                return UpdateEmployeeResponse.success();
         }
 
-        // 4. GHI VÀO CACHE CHO LẦN SAU (Lưu trong 60 phút)
-        employeeCacheService.putDetail(employeeId, response);
+        @Override
+        public EmployeeAssignmentHistoryResponse getAssignmentHistory(UUID employeeId) {
+                // // 1. KIỂM TRA CACHE TRƯỚC
+                // EmployeeAssignmentHistoryResponse cached =
+                // employeeCacheService.getAssignmentHistory(employeeId);
+                // if (cached != null) {
+                // return cached;
+                // }
 
-        return response;
-    }
+                // // 2. NẾU CACHE MISS -> TRUY VẤN DB
+                // if (!employeeRepository.existsById(employeeId)) {
+                // throw new ResourceNotFoundException("Không tìm thấy nhân viên với ID: " +
+                // employeeId);
+                // }
 
-    @Override
-    public EmployeeAssignmentHistoryResponse getAssignmentHistory(UUID employeeId) {
-        // 1. KIỂM TRA CACHE TRƯỚC
-        EmployeeAssignmentHistoryResponse cached = employeeCacheService.getAssignmentHistory(employeeId);
-        if (cached != null) {
-            return cached;
+                // List<EmployeeAssignmentEntity> entities =
+                // assignmentRepository.findByEmployeeIdOrderByFromDateDesc(employeeId);
+
+                // // 3. MAPPING SANG DTO
+                // List<EmployeeAssignmentDTO> dtoList = entities.stream().map(entity -> {
+                // EmployeeAssignmentDTO dto = new EmployeeAssignmentDTO();
+                // dto.setDepartmentId(entity.getDepartmentId().toString());
+                // dto.setTeamId(entity.getTeamId() != null ? entity.getTeamId().toString() :
+                // null);
+                // dto.setFromDate(entity.getFromDate());
+                // dto.setToDate(entity.getToDate());
+                // dto.setReason(entity.getPosition()); // Map tạm position vào reason nếu DB
+                // chưa có field reason
+                // return dto;
+                // }).collect(Collectors.toList());
+
+                // EmployeeAssignmentHistoryResponse response = new
+                // EmployeeAssignmentHistoryResponse();
+                // response.setEmployeeId(employeeId.toString());
+                // response.setAssignments(dtoList);
+
+                // // 4. GHI VÀO CACHE CHO LẦN SAU
+                // employeeCacheService.putAssignmentHistory(employeeId, response);
+
+                // return response;
+                return null;
         }
 
-        // 2. NẾU CACHE MISS -> TRUY VẤN DB
-        if (!employeeRepository.existsById(employeeId)) {
-            throw new ResourceNotFoundException("Không tìm thấy nhân viên với ID: " + employeeId);
+        @Override
+        @Transactional
+        public EmployeeTransferResponse transferEmployee(UUID employeeId, EmployeeTransferRequest request) {
+                return null;
         }
 
-        List<EmployeeAssignmentEntity> entities = assignmentRepository.findByEmployeeIdOrderByFromDateDesc(employeeId);
+        @Override
+        public EmployeeStatisticsResponse getEmployeeStatistics(EmployeeStatisticsRequest request) {
+                // // 1. Xử lý thời gian thực tế từ chuỗi period (yyyy-MM)
+                // YearMonth ym = YearMonth.parse(request.getPeriod());
+                // LocalDate startDate = ym.atDay(1);
+                // LocalDate endDate = ym.atEndOfMonth();
 
-        // 3. MAPPING SANG DTO
-        List<EmployeeAssignmentDTO> dtoList = entities.stream().map(entity -> {
-            EmployeeAssignmentDTO dto = new EmployeeAssignmentDTO();
-            dto.setDepartmentId(entity.getDepartmentId().toString());
-            dto.setTeamId(entity.getTeamId() != null ? entity.getTeamId().toString() : null);
-            dto.setFromDate(entity.getFromDate());
-            dto.setToDate(entity.getToDate());
-            dto.setReason(entity.getPosition()); // Map tạm position vào reason nếu DB chưa có field reason
-            return dto;
-        }).collect(Collectors.toList());
+                // UUID deptId = (request.getDepartmentId() != null) ?
+                // UUID.fromString(request.getDepartmentId()) : null;
 
-        EmployeeAssignmentHistoryResponse response = new EmployeeAssignmentHistoryResponse();
-        response.setEmployeeId(employeeId.toString());
-        response.setAssignments(dtoList);
+                // // 2. Truy vấn dữ liệu THẬT từ DB
+                // long activeEmps = employeeRepository.countActiveEmployees(deptId);
+                // long newHires = employeeRepository.countNewHires(startDate, endDate, deptId);
+                // BigDecimal totalOT = attendanceRepository.sumOvertimeHours(startDate,
+                // endDate, deptId);
+                // long actualWorkDays = attendanceRepository.countActualWorkDays(startDate,
+                // endDate, deptId);
 
-        // 4. GHI VÀO CACHE CHO LẦN SAU
-        employeeCacheService.putAssignmentHistory(employeeId, response);
+                // // 3. Tính toán Tỷ lệ chuyên cần (Attendance Rate)
+                // // Công thức thực tế: (Tổng lượt đi làm thực tế) / (Tổng nhân viên * Số ngày
+                // làm
+                // // việc định mức)
+                // double attendanceRate = 0.0;
+                // int workingDaysInMonth = 26; // Giả định định mức 26 ngày/tháng
+                // if (activeEmps > 0) {
+                // long potentialWorkDays = activeEmps * workingDaysInMonth;
+                // attendanceRate = ((double) actualWorkDays / potentialWorkDays) * 100;
+                // }
 
-        return response;
-    }
-
-    @Override
-    @Transactional
-    public EmployeeTransferResponse transferEmployee(UUID employeeId, EmployeeTransferRequest request) {
-        // 1. Kiểm tra nhân viên tồn tại
-        // 1. Chỉ kiểm tra tồn tại (Xóa bỏ lỗi biến không sử dụng)
-        if (!employeeRepository.existsById(employeeId)) {
-            throw new ResourceNotFoundException("Không tìm thấy nhân viên: " + employeeId);
+                // // 4. Trả về Response
+                // return EmployeeStatisticsResponse.builder()
+                // .totalEmployees((int) activeEmps)
+                // .activeEmployees((int) activeEmps)
+                // .newHires((int) newHires)
+                // .resignations(0) // Cần thêm query vào bảng Employee với status 'RESIGNED' và
+                // ngày nghỉ
+                // // trong kỳ
+                // .attendanceRate(Math.round(attendanceRate * 100.0) / 100.0)
+                // .totalOvertimeHours(totalOT != null ? totalOT : BigDecimal.ZERO)
+                // .build();
+                return null;
         }
-        // 2. Xử lý logic Assignment (Kết thúc cái cũ, tạo cái mới)
-        // Tìm assignment hiện tại đang active
-        Optional<EmployeeAssignmentEntity> currentAssignmentOpt = assignmentRepository.findAll().stream()
-                .filter(a -> a.getEmployeeId().equals(employeeId)
-                        && (a.getToDate() == null || a.getToDate().isAfter(LocalDate.now())))
-                .findFirst();
-
-        if (currentAssignmentOpt.isPresent()) {
-            EmployeeAssignmentEntity current = currentAssignmentOpt.get();
-            // Ngày kết thúc assignment cũ là ngày trước ngày hiệu lực mới
-            current.setToDate(request.getEffectiveDate().minusDays(1));
-            assignmentRepository.save(current);
-        }
-
-        // Tạo Assignment mới cho đơn vị mới
-        EmployeeAssignmentEntity newAssignment = new EmployeeAssignmentEntity();
-        newAssignment.setEmployeeId(employeeId);
-        newAssignment.setDepartmentId(UUID.fromString(request.getToDepartmentId()));
-        if (request.getToTeamId() != null) {
-            newAssignment.setTeamId(UUID.fromString(request.getToTeamId()));
-        }
-        newAssignment.setFromDate(request.getEffectiveDate());
-        // Giả sử lấy position cũ sang, hoặc bạn có thể thêm field position vào Request
-        newAssignment.setPosition("STAFF");
-
-        assignmentRepository.save(newAssignment);
-
-        // 3. Xóa Cache liên quan
-        employeeCacheService.evictAllList();
-        employeeCacheService.evictDetail(employeeId);
-        employeeCacheService.evictAssignmentHistory(employeeId);
-
-        // 4. Phát Event EmployeeMovedEvent (Dùng cho IAM, Production, Payroll)
-        EmployeeMovedEvent event = EmployeeMovedEvent.builder()
-                .employeeId(employeeId)
-                .fromDepartmentId(UUID.fromString(request.getFromDepartmentId()))
-                .toDepartmentId(UUID.fromString(request.getToDepartmentId()))
-                .effectiveDate(request.getEffectiveDate())
-                .build();
-        employeeEventService.publishEmployeeMovedEvent(event);
-
-        // 5. Trả về response
-        EmployeeTransferResponse response = new EmployeeTransferResponse();
-        response.setSuccess(true);
-        response.setEmployeeId(employeeId.toString());
-        response.setTransferId(UUID.randomUUID().toString()); // Tạo ID giao dịch điều chuyển
-        response.setStatus("COMPLETED");
-        response.setEffectiveDate(request.getEffectiveDate());
-
-        return response;
-    }
-
-    @Override
-    public EmployeeStatisticsResponse getEmployeeStatistics(EmployeeStatisticsRequest request) {
-        // 1. Xử lý thời gian thực tế từ chuỗi period (yyyy-MM)
-        YearMonth ym = YearMonth.parse(request.getPeriod());
-        LocalDate startDate = ym.atDay(1);
-        LocalDate endDate = ym.atEndOfMonth();
-
-        UUID deptId = (request.getDepartmentId() != null) ? UUID.fromString(request.getDepartmentId()) : null;
-
-        // 2. Truy vấn dữ liệu THẬT từ DB
-        long activeEmps = employeeRepository.countActiveEmployees(deptId);
-        long newHires = employeeRepository.countNewHires(startDate, endDate, deptId);
-        BigDecimal totalOT = attendanceRepository.sumOvertimeHours(startDate, endDate, deptId);
-        long actualWorkDays = attendanceRepository.countActualWorkDays(startDate, endDate, deptId);
-
-        // 3. Tính toán Tỷ lệ chuyên cần (Attendance Rate)
-        // Công thức thực tế: (Tổng lượt đi làm thực tế) / (Tổng nhân viên * Số ngày làm
-        // việc định mức)
-        double attendanceRate = 0.0;
-        int workingDaysInMonth = 26; // Giả định định mức 26 ngày/tháng
-        if (activeEmps > 0) {
-            long potentialWorkDays = activeEmps * workingDaysInMonth;
-            attendanceRate = ((double) actualWorkDays / potentialWorkDays) * 100;
-        }
-
-        // 4. Trả về Response
-        return EmployeeStatisticsResponse.builder()
-                .totalEmployees((int) activeEmps)
-                .activeEmployees((int) activeEmps)
-                .newHires((int) newHires)
-                .resignations(0) // Cần thêm query vào bảng Employee với status 'RESIGNED' và ngày nghỉ trong kỳ
-                .attendanceRate(Math.round(attendanceRate * 100.0) / 100.0)
-                .totalOvertimeHours(totalOT != null ? totalOT : BigDecimal.ZERO)
-                .build();
-    }
 
 }

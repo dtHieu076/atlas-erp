@@ -2,7 +2,10 @@ package com.atlas_erp.hr_service.Controller;
 
 import com.atlas_erp.hr_service.Dto.Request.Employee.*;
 import com.atlas_erp.hr_service.Dto.Response.ApiResponse;
-import com.atlas_erp.hr_service.Dto.Response.Employee.*;
+import com.atlas_erp.hr_service.Dto.Response.Employee.EmployeeProfileResponse;
+import com.atlas_erp.hr_service.Dto.Response.Employee.EmployeeResponse;
+import com.atlas_erp.hr_service.Dto.Response.Employee_v0.*;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import com.atlas_erp.hr_service.Service.EmployeeService;
@@ -19,30 +22,22 @@ public class EmployeeController {
 
     // 1️⃣ GET /employees
     @GetMapping
-    public EmployeeListResponse getEmployees(EmployeeListRequest request) {
-        return employeeService.getEmployees(request);
+    public ApiResponse<List<EmployeeResponse>> getAllEmployees() {
+        return ApiResponse.success(employeeService.getAllEmployees());
     }
 
+    // 3️⃣ PUT /employees/{id}
+    @GetMapping("/{id}")
+    public ApiResponse<EmployeeProfileResponse> getEmployeeProfile(@PathVariable UUID id) {
+        return ApiResponse.success(employeeService.getEmployeeProfile(id));
+    }
+
+    // -------------------------------------------------------------
     // 2️⃣ POST /employees
     @PostMapping
     public CreateEmployeeResponse createEmployee(
             @RequestBody CreateEmployeeRequest request) {
         return employeeService.createEmployee(request);
-    }
-
-    // 3️⃣ PUT /employees/{id}
-    @PutMapping("/{id}")
-    public UpdateEmployeeResponse updateEmployee(
-            @PathVariable UUID id,
-            @RequestBody UpdateEmployeeRequest request) {
-        return employeeService.updateEmployee(id, request);
-    }
-
-    // 11️⃣ GET /employees/{id}
-    @GetMapping("/{id}")
-    public EmployeeDetailResponse getEmployeeDetail(
-            @PathVariable UUID id) {
-        return employeeService.getEmployeeDetail(id);
     }
 
     // 12️⃣ GET /employees/{id}/assignments

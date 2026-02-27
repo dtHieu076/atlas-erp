@@ -34,6 +34,9 @@ public class JobTitleEntity {
     @Column(name = "department_id", nullable = false)
     private UUID departmentId; // reference Organization service
 
+    @Column(name = "departmentname")
+    private String departmentName;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
