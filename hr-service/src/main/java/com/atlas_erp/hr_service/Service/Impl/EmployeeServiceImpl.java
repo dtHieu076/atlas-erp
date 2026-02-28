@@ -37,7 +37,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 // List<EmployeeResponse> cached = employeeCacheService.getAllEmployees();
 
                 // if (cached != null) {
-                // return cached;
+                //         return cached;
                 // }
 
                 // 2. Nếu không có cache → query DB
@@ -58,7 +58,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 // 1. Check cache
                 // EmployeeProfileResponse cached = employeeCacheService.getEmployeeProfile(id);
                 // if (cached != null) {
-                // return cached;
+                //         return cached;
                 // }
 
                 // 2. Load employee
@@ -290,7 +290,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 // assignmentRepository.save(assignment);
 
                 // // 4. Xóa Cache danh sách nhân viên (Vì có dữ liệu mới)
-                // employeeCacheService.evictAllList();
+                employeeCacheService.evictAllEmployees();
 
                 // // 5. Phát Event (Để Payroll/Audit/IAM xử lý bất đồng bộ)
                 // EmployeeCreatedEvent event = EmployeeCreatedEvent.builder()
@@ -365,8 +365,8 @@ public class EmployeeServiceImpl implements EmployeeService {
                 // }
 
                 // // 4. Xóa Cache (List và Detail của nhân viên này)
-                // employeeCacheService.evictAllList();
-                // // employeeCacheService.evictDetail(id); // Nếu bạn có cache detail
+                employeeCacheService.evictAllEmployees();
+                employeeCacheService.evictEmployeeProfile(id); // cũng xóa detail nếu tồn tại
 
                 // // 5. Phát Event để IAM sync (ví dụ: đổi email hoặc lock tài khoản)
                 // EmployeeUpdatedEvent event = EmployeeUpdatedEvent.builder()

@@ -21,82 +21,82 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SkillServiceImpl implements SkillService {
 
-    private final SkillRepository skillRepository;
-    private final SkillCriteriaRepository skillCriteriaRepository;
-    private final SkillCacheService skillCacheService;
+        private final SkillRepository skillRepository;
+        private final SkillCriteriaRepository skillCriteriaRepository;
+        private final SkillCacheService skillCacheService;
 
-    // ===============================
-    // GET ALL
-    // ===============================
-    @Override
-    public List<SkillResponse> getAllSkills() {
+        // ===============================
+        // GET ALL
+        // ===============================
+        @Override
+        public List<SkillResponse> getAllSkills() {
 
-        // 1️⃣ Check cache trước
-        List<SkillResponse> cached = skillCacheService.getAllSkills();
-        if (cached != null) {
-            return cached;
+                // 1️⃣ Check cache trước
+                // List<SkillResponse> cached = skillCacheService.getAllSkills();
+                // if (cached != null) {
+                // return cached;
+                // }
+
+                // 2️⃣ Query DB
+                List<SkillResponse> skills = skillRepository.findAll()
+                                .stream()
+                                .map(skill -> SkillResponse.builder()
+                                                .id(skill.getId())
+                                                .code(skill.getCode())
+                                                .name(skill.getName())
+                                                .group(skill.getGroup().getName())
+                                                .maxLevel(skill.getMaxLevel())
+                                                .status(skill.getStatus())
+                                                .build())
+                                .collect(Collectors.toList());
+
+                // 3️⃣ Put cache
+                // skillCacheService.putAllSkills(skills);
+
+                return skills;
         }
 
-        // 2️⃣ Query DB
-        List<SkillResponse> skills = skillRepository.findAll()
-                .stream()
-                .map(skill -> SkillResponse.builder()
-                        .id(skill.getId())
-                        .code(skill.getCode())
-                        .name(skill.getName())
-                        .group(skill.getGroup().getName())
-                        .maxLevel(skill.getMaxLevel())
-                        .status(skill.getStatus())
-                        .build())
-                .collect(Collectors.toList());
+        // ===============================
+        // GET BY ID
+        // ===============================
+        @Override
+        public SkillDetailResponse getSkillById(UUID id) {
 
-        // 3️⃣ Put cache
-        skillCacheService.putAllSkills(skills);
+                // 1️⃣ Check cache trước
+                // SkillDetailResponse cached = skillCacheService.getSkillDetail(id.toString());
+                // if (cached != null) {
+                // return cached;
+                // }
 
-        return skills;
-    }
+                // 2️⃣ Query DB
+                SkillEntity skill = skillRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Skill not found"));
 
-    // ===============================
-    // GET BY ID
-    // ===============================
-    @Override
-    public SkillDetailResponse getSkillById(UUID id) {
+                List<SkillCriteriaEntity> criteriaList = skillCriteriaRepository.findBySkillId(id);
 
-        // 1️⃣ Check cache trước
-        SkillDetailResponse cached = skillCacheService.getSkillDetail(id.toString());
-        if (cached != null) {
-            return cached;
+                SkillDetailResponse response = SkillDetailResponse.builder()
+                                .id(skill.getId())
+                                .code(skill.getCode())
+                                .name(skill.getName())
+                                .group(skill.getGroup().getName())
+                                .maxLevel(skill.getMaxLevel())
+                                .description(skill.getDescription())
+                                .status(skill.getStatus())
+                                .createdAt(skill.getCreatedAt())
+                                .updatedAt(skill.getUpdatedAt())
+                                .updatedBy(skill.getUpdatedBy())
+                                .criteria(criteriaList.stream()
+                                                .map(c -> SkillDetailResponse.SkillCriteriaDto.builder()
+                                                                .id(c.getId())
+                                                                .title(c.getTitle())
+                                                                .description(c.getDescription())
+                                                                .build())
+                                                .collect(Collectors.toList()))
+                                .build();
+
+                // 3️⃣ Put cache
+                // skillCacheService.putSkillDetail(id.toString(), response);
+
+                return response;
         }
-
-        // 2️⃣ Query DB
-        SkillEntity skill = skillRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Skill not found"));
-
-        List<SkillCriteriaEntity> criteriaList = skillCriteriaRepository.findBySkillId(id);
-
-        SkillDetailResponse response = SkillDetailResponse.builder()
-                .id(skill.getId())
-                .code(skill.getCode())
-                .name(skill.getName())
-                .group(skill.getGroup().getName())
-                .maxLevel(skill.getMaxLevel())
-                .description(skill.getDescription())
-                .status(skill.getStatus())
-                .createdAt(skill.getCreatedAt())
-                .updatedAt(skill.getUpdatedAt())
-                .updatedBy(skill.getUpdatedBy())
-                .criteria(criteriaList.stream()
-                        .map(c -> SkillDetailResponse.SkillCriteriaDto.builder()
-                                .id(c.getId())
-                                .title(c.getTitle())
-                                .description(c.getDescription())
-                                .build())
-                        .collect(Collectors.toList()))
-                .build();
-
-        // 3️⃣ Put cache
-        skillCacheService.putSkillDetail(id.toString(), response);
-
-        return response;
-    }
 }

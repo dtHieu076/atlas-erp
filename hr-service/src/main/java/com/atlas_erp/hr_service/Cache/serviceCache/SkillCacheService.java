@@ -1,9 +1,7 @@
 package com.atlas_erp.hr_service.Cache.serviceCache;
 
-import java.time.Duration;
 import java.util.List;
 
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.atlas_erp.hr_service.Dto.Response.Skill.SkillDetailResponse;
@@ -15,11 +13,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SkillCacheService {
 
-    private final RedisTemplate<String, Object> redisTemplate;
-    private static final Duration DEFAULT_CACHE_DURATION = Duration.ofMinutes(60);
+    private final RedisCacheService redisCacheService;
+    private static final long TTL_MINUTES = 60;
 
-    private static final String SKILL_LIST_KEY = "skill:list:all";
-    private static final String SKILL_DETAIL_PREFIX = "skill:detail:";
+    private static final String SKILL_LIST_KEY = "hr:skill:list:all";
+    private static final String SKILL_DETAIL_PREFIX = "hr:skill:detail:";
 
     private String generateDetailKey(String skillId) {
         return SKILL_DETAIL_PREFIX + skillId;
@@ -29,48 +27,29 @@ public class SkillCacheService {
     // LIST CACHE
     // ===============================
     public List<SkillResponse> getAllSkills() {
-
-        Object data = redisTemplate.opsForValue().get(SKILL_LIST_KEY);
-
-        if (data instanceof List<?>) {
-            return ((List<?>) data)
-                    .stream()
-                    .filter(SkillResponse.class::isInstance)
-                    .map(SkillResponse.class::cast)
-                    .toList();
-        }
-
-        return null;
+        return redisCacheService.getList(SKILL_LIST_KEY, SkillResponse.class);
     }
 
     public void putAllSkills(List<SkillResponse> skills) {
-        redisTemplate.opsForValue().set(
-                SKILL_LIST_KEY,
-                skills,
-                DEFAULT_CACHE_DURATION);
+        redisCacheService.put(SKILL_LIST_KEY, skills, TTL_MINUTES);
     }
 
     public void evictAllSkills() {
-        redisTemplate.delete(SKILL_LIST_KEY);
+        redisCacheService.delete(SKILL_LIST_KEY);
     }
 
     // ===============================
     // DETAIL CACHE
     // ===============================
     public SkillDetailResponse getSkillDetail(String skillId) {
-        return (SkillDetailResponse) redisTemplate
-                .opsForValue()
-                .get(generateDetailKey(skillId));
+        return redisCacheService.get(generateDetailKey(skillId), SkillDetailResponse.class);
     }
 
     public void putSkillDetail(String skillId, SkillDetailResponse detail) {
-        redisTemplate.opsForValue().set(
-                generateDetailKey(skillId),
-                detail,
-                DEFAULT_CACHE_DURATION);
+        redisCacheService.put(generateDetailKey(skillId), detail, TTL_MINUTES);
     }
 
     public void evictSkillDetail(String skillId) {
-        redisTemplate.delete(generateDetailKey(skillId));
+        redisCacheService.delete(generateDetailKey(skillId));
     }
 }

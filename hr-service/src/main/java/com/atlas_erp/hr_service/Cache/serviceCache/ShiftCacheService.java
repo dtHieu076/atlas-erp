@@ -1,68 +1,46 @@
 package com.atlas_erp.hr_service.Cache.serviceCache;
 
-import java.time.Duration;
-import java.util.List;
-
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-
 import com.atlas_erp.hr_service.Dto.Response.Shift.ShiftDetailResponse;
 import com.atlas_erp.hr_service.Dto.Response.Shift.ShiftResponse;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ShiftCacheService {
-    private final RedisTemplate<String, Object> redisTemplate;
-    private static final Duration DEFAULT_CACHE_DURATION = Duration.ofMinutes(60);
+    private final RedisCacheService redisCacheService;
 
-    private static final String SHIFT_LIST_KEY = "shift:list:all";
-    private static final String SHIFT_DETAIL_PREFIX = "shift:detail:";
+    private static final long TTL_MINUTES = 60;
+    private static final String SHIFT_LIST_KEY = "hr:shift:list:all";
+    private static final String SHIFT_DETAIL_PREFIX = "hr:shift:detail:";
 
     private String generateDetailKey(String shiftId) {
         return SHIFT_DETAIL_PREFIX + shiftId;
     }
 
-    // LIST CACHE
     public List<ShiftResponse> getAllShifts() {
-        Object data = redisTemplate.opsForValue().get(SHIFT_LIST_KEY);
-
-        if (data instanceof List<?>) {
-            return ((List<?>) data)
-                    .stream()
-                    .filter(ShiftResponse.class::isInstance)
-                    .map(ShiftResponse.class::cast)
-                    .toList();
-        }
-
-        return null;
+        return redisCacheService.getList(SHIFT_LIST_KEY, ShiftResponse.class);
     }
 
     public void putAllShifts(List<ShiftResponse> shifts) {
-        redisTemplate.opsForValue().set(
-                SHIFT_LIST_KEY,
-                shifts,
-                DEFAULT_CACHE_DURATION);
+        redisCacheService.put(SHIFT_LIST_KEY, shifts, TTL_MINUTES);
     }
 
     public void evictAllShifts() {
-        redisTemplate.delete(SHIFT_LIST_KEY);
+        redisCacheService.delete(SHIFT_LIST_KEY);
     }
 
-    // DETAIL CACHE
     public ShiftDetailResponse getShiftDetail(String shiftId) {
-        return (ShiftDetailResponse) redisTemplate.opsForValue().get(generateDetailKey(shiftId));
+        return redisCacheService.get(generateDetailKey(shiftId), ShiftDetailResponse.class);
     }
 
     public void putShiftDetail(String shiftId, ShiftDetailResponse detail) {
-        redisTemplate.opsForValue().set(
-                generateDetailKey(shiftId),
-                detail,
-                DEFAULT_CACHE_DURATION);
+        redisCacheService.put(generateDetailKey(shiftId), detail, TTL_MINUTES);
     }
 
     public void evictShiftDetail(String shiftId) {
-        redisTemplate.delete(generateDetailKey(shiftId));
+        redisCacheService.delete(generateDetailKey(shiftId));
     }
 }

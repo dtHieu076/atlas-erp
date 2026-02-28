@@ -1,16 +1,10 @@
 package com.atlas_erp.hr_service.Cache.serviceCache;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.atlas_erp.hr_service.Dto.Response.Employee.EmployeeProfileResponse;
 import com.atlas_erp.hr_service.Dto.Response.Employee.EmployeeResponse;
@@ -19,15 +13,13 @@ import com.atlas_erp.hr_service.Dto.Response.Employee.EmployeeResponse;
 @RequiredArgsConstructor
 public class EmployeeCacheService {
 
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final ObjectMapper objectMapper;
+    private final RedisCacheService redisCacheService;
 
     // ====== CONSTANT KEY PREFIX ======
-    private static final String KEY_ALL = "emp:all";
-    private static final String KEY_PROFILE = "emp:profile:";
+    private static final String KEY_ALL = "hr:employee:list:all";
+    private static final String KEY_PROFILE = "hr:employee:profile:";
 
-    // ====== TTL 60 phút ======
-    private static final Duration DURATION = Duration.ofMinutes(60);
+    private static final long TTL_MINUTES = 60;
 
     /*
      * =========================================================
@@ -40,33 +32,15 @@ public class EmployeeCacheService {
     }
 
     public List<EmployeeResponse> getAllEmployees() {
-
-        Object cached = redisTemplate.opsForValue().get(KEY_ALL);
-
-        if (cached == null) {
-            return null;
-        }
-
-        // Nếu deserialize đúng type rồi
-        if (cached instanceof List<?> list &&
-                !list.isEmpty() &&
-                list.get(0) instanceof EmployeeResponse) {
-            return (List<EmployeeResponse>) cached;
-        }
-
-        // Nếu bị LinkedHashMap do generic erasure
-        return objectMapper.convertValue(
-                cached,
-                new TypeReference<List<EmployeeResponse>>() {
-                });
+        return redisCacheService.getList(KEY_ALL, EmployeeResponse.class);
     }
 
     public void putAllEmployees(List<EmployeeResponse> data) {
-        redisTemplate.opsForValue().set(KEY_ALL, data, DURATION);
+        redisCacheService.put(KEY_ALL, data, TTL_MINUTES);
     }
 
     public void evictAllEmployees() {
-        redisTemplate.delete(KEY_ALL);
+        redisCacheService.delete(KEY_ALL);
     }
 
     /*
@@ -80,28 +54,15 @@ public class EmployeeCacheService {
     }
 
     public EmployeeProfileResponse getEmployeeProfile(UUID id) {
-
-        Object cached = redisTemplate.opsForValue().get(getProfileKey(id));
-
-        if (cached == null) {
-            return null;
-        }
-
-        if (cached instanceof EmployeeProfileResponse profile) {
-            return profile;
-        }
-
-        return objectMapper.convertValue(
-                cached,
-                EmployeeProfileResponse.class);
+        return redisCacheService.get(getProfileKey(id), EmployeeProfileResponse.class);
     }
 
     public void putEmployeeProfile(UUID id, EmployeeProfileResponse data) {
-        redisTemplate.opsForValue().set(getProfileKey(id), data, DURATION);
+        redisCacheService.put(getProfileKey(id), data, TTL_MINUTES);
     }
 
     public void evictEmployeeProfile(UUID id) {
-        redisTemplate.delete(getProfileKey(id));
+        redisCacheService.delete(getProfileKey(id));
     }
 
     /*
@@ -111,9 +72,6 @@ public class EmployeeCacheService {
      */
 
     public void evictAllEmployeeCaches() {
-        Set<String> keys = redisTemplate.keys("emp:*");
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
-        }
+        redisCacheService.deleteByPattern("hr:employee:*");
     }
 }

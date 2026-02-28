@@ -26,7 +26,7 @@ public class EmployeeController {
         return ApiResponse.success(employeeService.getAllEmployees());
     }
 
-    // 3️⃣ PUT /employees/{id}
+    // /employees/{id}
     @GetMapping("/{id}")
     public ApiResponse<EmployeeProfileResponse> getEmployeeProfile(@PathVariable UUID id) {
         return ApiResponse.success(employeeService.getEmployeeProfile(id));

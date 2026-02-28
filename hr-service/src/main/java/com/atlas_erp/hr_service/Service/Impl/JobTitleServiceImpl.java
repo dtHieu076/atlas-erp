@@ -8,8 +8,8 @@ import com.atlas_erp.hr_service.Service.JobTitleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j; // Thêm log để kiểm tra cho dễ
 import org.springframework.stereotype.Service;
-
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,14 +22,15 @@ public class JobTitleServiceImpl implements JobTitleService {
     @Override
     public List<JobTitleResponse> getAllJobTitles() {
         // 1. Kiểm tra trong Cache trước
-        List<JobTitleResponse> cachedData = jobTitleCacheService.getAllJobTitles();
-        if (cachedData != null) {
-            log.info("Lấy danh sách JobTitle từ Redis Cache");
-            return cachedData;
-        }
+        // kiểm tra cache service chuyên dụng
+        // List<JobTitleResponse> cachedData = jobTitleCacheService.getAllJobTitles();
+        // if (cachedData != null && !cachedData.isEmpty()) {
+        //     log.info("Lấy danh sách JobTitle từ Redis Cache (module)");
+        //     return cachedData;
+        // }
 
         // 2. Nếu Cache trống, truy vấn Database
-        log.info("Cache trống, truy vấn Database");
+        // log.info("Cache trống, truy vấn Database");
         List<JobTitleEntity> entities = jobTitleRepository.findAll();
 
         List<JobTitleResponse> responses = entities.stream()
@@ -37,7 +38,7 @@ public class JobTitleServiceImpl implements JobTitleService {
                 .toList();
 
         // 3. Lưu kết quả vào Cache cho lần sau
-        jobTitleCacheService.putAllJobTitles(responses);
+        // jobTitleCacheService.putAllJobTitles(responses);
 
         return responses;
     }

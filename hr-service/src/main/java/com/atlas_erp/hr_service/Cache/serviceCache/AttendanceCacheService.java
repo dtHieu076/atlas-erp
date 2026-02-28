@@ -6,18 +6,19 @@ import com.atlas_erp.hr_service.Dto.Request.Attendance.AttendanceListRequest;
 import com.atlas_erp.hr_service.Dto.Request.Attendance.AttendanceSummaryRequest;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import java.time.Duration;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class AttendanceCacheService {
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisCacheService redisCacheService;
+
+    private static final long LIST_TTL = 30;
+    private static final long SUMMARY_TTL = 60;
 
     public String generateKey(AttendanceListRequest request) {
-        return String.format("att:list:f:%s:t:%s:e:%s:d:%s",
+        return String.format("hr:attendance:list:f:%s:t:%s:e:%s:d:%s",
                 request.getFromDate(),
                 request.getToDate(),
                 request.getEmployeeId() != null ? request.getEmployeeId() : "all",
@@ -25,43 +26,33 @@ public class AttendanceCacheService {
     }
 
     public AttendanceListResponse getAttendanceList(String key) {
-        return (AttendanceListResponse) redisTemplate.opsForValue().get(key);
+        return redisCacheService.get(key, AttendanceListResponse.class);
     }
 
     public void putAttendanceList(String key, AttendanceListResponse data) {
-        // Chấm công thường được xem nhiều nhưng ít thay đổi trong ngày (trừ khi có điều
-        // chỉnh thủ công)
-        // Lưu cache trong 30 phút là hợp lý
-        redisTemplate.opsForValue().set(key, data, Duration.ofMinutes(30));
+        redisCacheService.put(key, data, LIST_TTL);
     }
 
     public void evictAttendanceCache() {
-        var keys = redisTemplate.keys("att:list:*");
-        if (keys != null && !keys.isEmpty())
-            redisTemplate.delete(keys);
+        redisCacheService.deleteByPattern("hr:attendance:list:*");
     }
 
     public String generateSummaryKey(AttendanceSummaryRequest request) {
-        return String.format("att:summary:p:%s:d:%s:t:%s",
+        return String.format("hr:attendance:summary:p:%s:d:%s:t:%s",
                 request.getPeriod(),
                 request.getDepartmentId() != null ? request.getDepartmentId() : "all",
                 request.getTeamId() != null ? request.getTeamId() : "all");
     }
 
     public AttendanceSummaryResponse getSummary(String key) {
-        return (AttendanceSummaryResponse) redisTemplate.opsForValue().get(key);
+        return redisCacheService.get(key, AttendanceSummaryResponse.class);
     }
 
     public void putSummary(String key, AttendanceSummaryResponse data) {
-        // Báo cáo tháng thường ít thay đổi liên tục, có thể lưu 1 tiếng (60p)
-        redisTemplate.opsForValue().set(key, data, Duration.ofMinutes(60));
+        redisCacheService.put(key, data, SUMMARY_TTL);
     }
 
     public void evictAllAttendanceCache() {
-        // Xóa cả list chi tiết và các báo cáo tổng hợp
-        Set<String> keys = redisTemplate.keys("att:*");
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
-        }
+        redisCacheService.deleteByPattern("hr:attendance:*");
     }
 }
