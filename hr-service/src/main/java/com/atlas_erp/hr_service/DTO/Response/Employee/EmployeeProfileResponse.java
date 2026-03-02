@@ -33,6 +33,8 @@ public class EmployeeProfileResponse {
 
     @Data
     @Builder
+    @NoArgsConstructor // BẮT BUỘC THÊM
+    @AllArgsConstructor // BẮT BUỘC THÊM
     public static class PersonalInfo {
         private LocalDate dob;
         private String nationalId;
@@ -48,6 +50,8 @@ public class EmployeeProfileResponse {
 
     @Data
     @Builder
+    @NoArgsConstructor // BẮT BUỘC THÊM
+    @AllArgsConstructor // BẮT BUỘC THÊM
     public static class JobInfo {
         private UUID departmentId;
         private String departmentName;
