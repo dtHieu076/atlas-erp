@@ -14,6 +14,9 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
+# Tải Agent trực tiếp từ GitHub vào Stage 2
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+
 # Copy file .jar từ Stage 1 sang Stage 2 và đổi tên thành app.jar cho dễ gọi
 COPY --from=build /app/target/*.jar app.jar
 
