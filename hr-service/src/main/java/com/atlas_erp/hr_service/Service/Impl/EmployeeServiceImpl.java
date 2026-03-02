@@ -34,11 +34,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         public List<EmployeeResponse> getAllEmployees() {
 
                 // 1. Check cache trước
-                // List<EmployeeResponse> cached = employeeCacheService.getAllEmployees();
+                List<EmployeeResponse> cached = employeeCacheService.getAllEmployees();
 
-                // if (cached != null) {
-                //         return cached;
-                // }
+                if (cached != null && !cached.isEmpty()) {
+                        return cached;
+                }
 
                 // 2. Nếu không có cache → query DB
                 List<EmployeeResponse> data = employeeRepository.findAll()
@@ -47,7 +47,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                                 .toList();
 
                 // 3. Lưu cache 60 phút
-                // employeeCacheService.putAllEmployees(data);
+                employeeCacheService.putAllEmployees(data);
 
                 return data;
         }
@@ -56,10 +56,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         public EmployeeProfileResponse getEmployeeProfile(UUID id) {
 
                 // 1. Check cache
-                // EmployeeProfileResponse cached = employeeCacheService.getEmployeeProfile(id);
-                // if (cached != null) {
-                //         return cached;
-                // }
+                EmployeeProfileResponse cached = employeeCacheService.getEmployeeProfile(id);
+                if (cached != null) {
+                        return cached;
+                }
 
                 // 2. Load employee
                 EmployeeEntity employee = employeeRepository.findById(id)
@@ -182,7 +182,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                                 .build();
 
                 // Save cache
-                // employeeCacheService.putEmployeeProfile(id, profile);
+                employeeCacheService.putEmployeeProfile(id, profile);
 
                 return profile;
         }

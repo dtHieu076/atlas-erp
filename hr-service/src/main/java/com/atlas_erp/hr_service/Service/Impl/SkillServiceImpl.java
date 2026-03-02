@@ -32,10 +32,10 @@ public class SkillServiceImpl implements SkillService {
         public List<SkillResponse> getAllSkills() {
 
                 // 1️⃣ Check cache trước
-                // List<SkillResponse> cached = skillCacheService.getAllSkills();
-                // if (cached != null) {
-                // return cached;
-                // }
+                List<SkillResponse> cached = skillCacheService.getAllSkills();
+                if (cached != null && !cached.isEmpty()) {
+                        return cached;
+                }
 
                 // 2️⃣ Query DB
                 List<SkillResponse> skills = skillRepository.findAll()
@@ -51,7 +51,7 @@ public class SkillServiceImpl implements SkillService {
                                 .collect(Collectors.toList());
 
                 // 3️⃣ Put cache
-                // skillCacheService.putAllSkills(skills);
+                skillCacheService.putAllSkills(skills);
 
                 return skills;
         }
@@ -63,10 +63,10 @@ public class SkillServiceImpl implements SkillService {
         public SkillDetailResponse getSkillById(UUID id) {
 
                 // 1️⃣ Check cache trước
-                // SkillDetailResponse cached = skillCacheService.getSkillDetail(id.toString());
-                // if (cached != null) {
-                // return cached;
-                // }
+                SkillDetailResponse cached = skillCacheService.getSkillDetail(id.toString());
+                if (cached != null) {
+                        return cached;
+                }
 
                 // 2️⃣ Query DB
                 SkillEntity skill = skillRepository.findById(id)
@@ -95,7 +95,7 @@ public class SkillServiceImpl implements SkillService {
                                 .build();
 
                 // 3️⃣ Put cache
-                // skillCacheService.putSkillDetail(id.toString(), response);
+                skillCacheService.putSkillDetail(id.toString(), response);
 
                 return response;
         }

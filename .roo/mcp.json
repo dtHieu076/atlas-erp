@@ -1,0 +1,20 @@
+{
+	"mcpServers": {
+		"hr-db-postgres": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-postgres",
+				"postgresql://neondb_owner:npg_ODZx4pvMKCU1@ep-nameless-flower-ahqfkw3x-pooler.c-3.us-east-1.aws.neon.tech/hr_db?sslmode=require"
+			]
+		},
+		"hr-redis": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-redis",
+				"rediss://:AVjLAAIncDFjM2I3ZDI3OWIxNWU0OTMwOTcxMTQ3OWRjOTQ0MjNhNXAxMjI3MzE@helping-labrador-22731.upstash.io:6379"
+			]
+		}
+	}
+}

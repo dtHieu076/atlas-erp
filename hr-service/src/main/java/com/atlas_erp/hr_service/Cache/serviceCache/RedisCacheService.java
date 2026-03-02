@@ -1,7 +1,8 @@
 package com.atlas_erp.hr_service.Cache.serviceCache;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -11,14 +12,16 @@ import java.util.List;
 import java.util.Set;
 
 @Service
-@RequiredArgsConstructor
 public class RedisCacheService {
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Put any object into Redis as JSON with TTL in minutes.
-     */
+    public RedisCacheService(RedisTemplate<String, String> redisTemplate,
+            @Qualifier("cacheObjectMapper") ObjectMapper objectMapper) {
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+    }
+
     public <T> void put(String key, T value, long ttlMinutes) {
         try {
             String json = objectMapper.writeValueAsString(value);

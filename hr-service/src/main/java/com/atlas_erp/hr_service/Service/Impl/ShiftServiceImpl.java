@@ -32,17 +32,17 @@ public class ShiftServiceImpl implements ShiftService {
     // ===============================
     @Override
     public List<ShiftResponse> getAllShifts() {
-        // List<ShiftResponse> cachedShifts = shiftCacheService.getAllShifts();
-        // if (!cachedShifts.isEmpty()) {
-        //     return cachedShifts;
-        // }
+        List<ShiftResponse> cachedShifts = shiftCacheService.getAllShifts();
+        if (!cachedShifts.isEmpty()) {
+            return cachedShifts;
+        }
 
         List<ShiftResponse> shifts = shiftRepository.findAll()
                 .stream()
                 .map(this::mapToShiftResponse)
                 .collect(Collectors.toList());
 
-        // shiftCacheService.putAllShifts(shifts);
+        shiftCacheService.putAllShifts(shifts);
 
         return shifts;
     }
@@ -53,10 +53,10 @@ public class ShiftServiceImpl implements ShiftService {
     @Override
     public ShiftDetailResponse getShiftById(UUID id) {
         // Kiem tra cache truoc khi truy van DB
-        // ShiftDetailResponse cachedDetail = shiftCacheService.getShiftDetail(id.toString());
-        // if (cachedDetail != null) {
-        //     return cachedDetail;
-        // }
+        ShiftDetailResponse cachedDetail = shiftCacheService.getShiftDetail(id.toString());
+        if (cachedDetail != null) {
+        return cachedDetail;
+        }
 
         // Truy vấn DB nếu không có trong cache
         ShiftEntity shift = shiftRepository.findById(id)
@@ -68,7 +68,7 @@ public class ShiftServiceImpl implements ShiftService {
         ShiftDetailResponse detail = mapToShiftDetailResponse(shift, rule, scopes);
 
         // Lưu vào cache sau khi truy vấn thành công
-        // shiftCacheService.putShiftDetail(id.toString(), detail);
+        shiftCacheService.putShiftDetail(id.toString(), detail);
 
         return detail;
     }

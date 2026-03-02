@@ -23,11 +23,11 @@ public class JobTitleServiceImpl implements JobTitleService {
     public List<JobTitleResponse> getAllJobTitles() {
         // 1. Kiểm tra trong Cache trước
         // kiểm tra cache service chuyên dụng
-        // List<JobTitleResponse> cachedData = jobTitleCacheService.getAllJobTitles();
-        // if (cachedData != null && !cachedData.isEmpty()) {
-        //     log.info("Lấy danh sách JobTitle từ Redis Cache (module)");
-        //     return cachedData;
-        // }
+        List<JobTitleResponse> cachedData = jobTitleCacheService.getAllJobTitles();
+        if (cachedData != null && !cachedData.isEmpty()) {
+            log.info("Lấy danh sách JobTitle từ Redis Cache (module)");
+            return cachedData;
+        }
 
         // 2. Nếu Cache trống, truy vấn Database
         // log.info("Cache trống, truy vấn Database");
@@ -38,7 +38,7 @@ public class JobTitleServiceImpl implements JobTitleService {
                 .toList();
 
         // 3. Lưu kết quả vào Cache cho lần sau
-        // jobTitleCacheService.putAllJobTitles(responses);
+        jobTitleCacheService.putAllJobTitles(responses);
 
         return responses;
     }

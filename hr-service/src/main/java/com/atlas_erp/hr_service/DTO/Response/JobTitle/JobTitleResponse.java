@@ -1,10 +1,14 @@
 package com.atlas_erp.hr_service.Dto.Response.JobTitle;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class JobTitleResponse {
 
     private String code; // Mã chức danh
