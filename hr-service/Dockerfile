@@ -15,7 +15,7 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 # Tải Agent trực tiếp từ GitHub vào Stage 2
-ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+# ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 
 # Copy file .jar từ Stage 1 sang Stage 2 và đổi tên thành app.jar cho dễ gọi
 COPY --from=build /app/target/*.jar app.jar
@@ -24,4 +24,5 @@ COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
 
 # Lệnh khởi chạy ứng dụng
-ENTRYPOINT ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
+# ENTRYPOINT ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-jar", "app.jar"]
