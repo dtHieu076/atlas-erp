@@ -14,15 +14,21 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Tải Agent trực tiếp từ GitHub vào Stage 2
+# Tải Agent trực tiếp từ GitHub vào Stage 2 (Dùng bản OpenTelemetry chuẩn)
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 
-# Copy file .jar từ Stage 1 sang Stage 2 và đổi tên thành app.jar cho dễ gọi
+# Copy file .jar từ Stage 1 sang Stage 2 và đổi tên thành app.jar
 COPY --from=build /app/target/*.jar app.jar
+
+# --- Giữ nguyên các biến môi trường cấu hình cũ ---
+ENV OTEL_SERVICE_NAME="hr-service"  
+ENV OTEL_EXPORTER_OTLP_ENDPOINT="https://otlp-gateway-prod-ap-southeast-1.grafana.net/otlp"  
+ENV OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"  
+ENV OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09"  
+ENV SPRING_CLOUD_CONFIG_ENABLED=false  
 
 # Expose port mặc định của Spring Boot
 EXPOSE 8080
 
-# Lệnh khởi chạy ứng dụng
-# ENTRYPOINT ["java", "-jar", "app.jar"]
+# Lệnh khởi chạy ứng dụng với Agent mới
 ENTRYPOINT ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-jar", "app.jar"]
