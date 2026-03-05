@@ -30,5 +30,13 @@ ENV SPRING_CLOUD_CONFIG_ENABLED=false
 # Expose port mặc định của Spring Boot
 EXPOSE 8080
 
-# Lệnh khởi chạy ứng dụng với Agent mới
-ENTRYPOINT ["java", "-javaagent:/app/opentelemetry-javaagent.jar", "-jar", "app.jar"]
+# Sử dụng tham số -D để ép cấu hình ngay khi chạy, tránh Agent nhận nhầm localhost
+ENTRYPOINT ["java", \
+    "-javaagent:/app/opentelemetry-javaagent.jar", \
+    "-Dotel.exporter.otlp.endpoint=https://otlp-gateway-prod-ap-southeast-1.grafana.net/otlp", \
+    "-Dotel.exporter.otlp.protocol=http/protobuf", \
+    "-Dotel.exporter.otlp.headers=Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09", \
+    "-Dotel.service.name=hr-service", \
+    "-Dotel.logs.exporter=none", \
+    "-Dotel.metrics.exporter=none", \
+    "-jar", "app.jar"]
