@@ -18,7 +18,8 @@ public class CorsConfig {
         config.setAllowCredentials(true);
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
-                "https://hrfrontendv1.netlify.app"));
+                "https://hrfrontendv1.netlify.app",
+                "https://adminfrontend-bice-eta.vercel.app"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("*"));
 
