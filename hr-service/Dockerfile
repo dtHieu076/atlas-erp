@@ -37,6 +37,6 @@ ENTRYPOINT ["java", \
     "-Dotel.exporter.otlp.protocol=http/protobuf", \
     "-Dotel.exporter.otlp.headers=Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09", \
     "-Dotel.service.name=hr-service", \
-    "-Dotel.logs.exporter=none", \
-    "-Dotel.metrics.exporter=none", \
+    "-Dotel.logs.exporter=otlp", \
+    "-Dotel.metrics.exporter=otlp", \
     "-jar", "app.jar"]
