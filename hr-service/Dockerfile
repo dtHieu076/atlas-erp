@@ -42,11 +42,32 @@ ENV OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
 EXPOSE 8080
 
 # Sử dụng tham số -D để ép cấu hình ngay khi chạy, tránh Agent nhận nhầm localhost
+# ENTRYPOINT ["java",\
+#     "-javaagent:/app/opentelemetry-javaagent.jar",\
+#     "-Dotel.metrics.exporter=otlp",\
+#     "-Dotel.logs.exporter=otlp",\
+#     "-Dotel.instrumentation.logback-appender.enabled=true",\
+#     "-Dotel.exporter.otlp.timeout=30000",\
+#     "-Dotel.metric.export.interval=30000",\
+#     "-jar","app.jar"]
+
 ENTRYPOINT ["java",\
-    "-javaagent:/app/opentelemetry-javaagent.jar",\
-    "-Dotel.metrics.exporter=otlp",\
-    "-Dotel.logs.exporter=otlp",\
-    "-Dotel.instrumentation.logback-appender.enabled=true",\
-    "-Dotel.exporter.otlp.timeout=30000",\
-    "-Dotel.metric.export.interval=30000",\
-    "-jar","app.jar"]
+    "-javaagent:/app/opentelemetry-javaagent.jar",\  
+    "-Dotel.service.name=hr-service",\  
+    "-Dotel.exporter.otlp.protocol=http/protobuf",\  
+
+    # Traces → OTLP Gateway  
+    "-Dotel.exporter.otlp.traces.endpoint=https://otlp-gateway-prod-ap-southeast-1.grafana.net/otlp",\  
+    "-Dotel.exporter.otlp.traces.headers=Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09",\  
+
+    # Logs → Loki endpoint  
+    "-Dotel.logs.exporter=otlp",\  
+    "-Dotel.exporter.otlp.logs.endpoint=https://logs-prod-ap-southeast-1.grafana.net/otlp",\  
+    "-Dotel.exporter.otlp.logs.headers=Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09",\  
+
+    # Metrics → Prometheus endpoint  
+    "-Dotel.metrics.exporter=otlp",\  
+    "-Dotel.exporter.otlp.metrics.endpoint=https://prometheus-prod-ap-southeast-1.grafana.net/otlp",\  
+    "-Dotel.exporter.otlp.metrics.headers=Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09",\  
+
+    "-jar", "app.jar"]  
