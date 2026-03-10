@@ -46,5 +46,4 @@ ENTRYPOINT ["java", \
     "-Dotel.instrumentation.logback-appender.enabled=true",  \
     "-Dotel.metric.export.interval=30000",  \
     "-Dotel.exporter.otlp.timeout=30000",  \
-    "-Dspring.cloud.config.enabled=false",  \
     "-jar", "app.jar"] 
