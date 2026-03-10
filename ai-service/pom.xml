@@ -75,6 +75,16 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+
+        <!-- Note: OCR.space API is used instead of Tesseract -->
+        <!-- Tesseract OCR (removed - using OCR.space) -->
+        <!--
+        <dependency>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+            <version>5.7.0</version>
+        </dependency>
+        -->
     </dependencies>
 
     <dependencyManagement>
