@@ -65,6 +65,16 @@ public class IdCardData {
     private String religion;
 
     /**
+     * Quê quán (map từ placeOfOrigin)
+     */
+    private String hometown;
+
+    /**
+     * Địa chỉ thường trú (map từ address)
+     */
+    private String permanentAddress;
+
+    /**
      * Raw OCR text từ mặt trước
      */
     private String rawOcrFront;

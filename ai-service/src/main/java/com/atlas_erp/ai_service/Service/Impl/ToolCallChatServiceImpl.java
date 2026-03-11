@@ -375,7 +375,7 @@ public class ToolCallChatServiceImpl implements ToolCallChatService {
                 // Map snake_case tool name to camelCase method name
                 String methodName = convertToCamelCase(functionName);
                 log.debug("Looking for method: {} (from tool: {})", methodName, functionName);
-                
+
                 try {
                         // Parse arguments
                         Map<String, Object> argsMap;
@@ -390,17 +390,18 @@ public class ToolCallChatServiceImpl implements ToolCallChatService {
                         Method[] methods = hrTools.getClass().getDeclaredMethods();
                         for (Method method : methods) {
                                 if (method.getName().equals(methodName)) {
-                                        log.debug("Found method: {} with {} parameters", methodName, method.getParameterCount());
-                                        
+                                        log.debug("Found method: {} with {} parameters", methodName,
+                                                        method.getParameterCount());
+
                                         // Build parameter values
                                         List<Object> paramValues = new ArrayList<>();
                                         Class<?>[] paramTypes = method.getParameterTypes();
-                                        
+
                                         for (int i = 0; i < paramTypes.length; i++) {
                                                 Class<?> paramType = paramTypes[i];
                                                 String argName = getArgNameForMethod(methodName, i);
                                                 Object value = argsMap.get(argName);
-                                                
+
                                                 if (paramType == String.class) {
                                                         paramValues.add(value != null ? value.toString() : "");
                                                 } else if (paramType == int.class || paramType == Integer.class) {
@@ -429,7 +430,7 @@ public class ToolCallChatServiceImpl implements ToolCallChatService {
                         return "Error executing tool: " + e.getMessage();
                 }
         }
-        
+
         /**
          * Convert snake_case to camelCase
          */
@@ -453,20 +454,20 @@ public class ToolCallChatServiceImpl implements ToolCallChatService {
                 }
                 return result.toString();
         }
-        
+
         /**
          * Get argument name for method based on method name
          */
         private String getArgNameForMethod(String methodName, int paramIndex) {
                 // Map method name to expected argument names
                 Map<String, String[]> methodArgs = new HashMap<>();
-                methodArgs.put("queryHrDatabase", new String[]{"sql"});
-                methodArgs.put("searchEmployees", new String[]{"name"});
-                methodArgs.put("getTodayAttendance", new String[]{});
-                methodArgs.put("getEmployeeList", new String[]{"limit"});
-                methodArgs.put("getEmployeeStatistics", new String[]{});
-                methodArgs.put("getAttendanceByDate", new String[]{"date"});
-                
+                methodArgs.put("queryHrDatabase", new String[] { "sql" });
+                methodArgs.put("searchEmployees", new String[] { "name" });
+                methodArgs.put("getTodayAttendance", new String[] {});
+                methodArgs.put("getEmployeeList", new String[] { "limit" });
+                methodArgs.put("getEmployeeStatistics", new String[] {});
+                methodArgs.put("getAttendanceByDate", new String[] { "date" });
+
                 String[] args = methodArgs.get(methodName);
                 if (args != null && paramIndex < args.length) {
                         return args[paramIndex];
@@ -477,29 +478,153 @@ public class ToolCallChatServiceImpl implements ToolCallChatService {
         /**
          * Build system prompt với schema information
          */
+        // private String buildSystemPrompt() {
+        // return """
+        // Bạn là trợ lý AI cho hệ thống quản lý nhân sự Atlas ERP.
+
+        // Nhiệm vụ của bạn:
+        // 1. Hiểu câu hỏi của người dùng về dữ liệu nhân sự
+        // 2. Sử dụng các tools được cung cấp để truy vấn database khi cần thiết
+        // 3. Tổng hợp kết quả và trả lời bằng tiếng Việt
+
+        // Các tools có sẵn:
+        // - query_hr_database: Thực thi câu SQL (SELECT) để lấy dữ liệu
+        // - search_employees: Tìm kiếm nhân viên theo tên
+        // - get_today_attendance: Lấy danh sách chấm công hôm nay
+        // - get_employee_list: Lấy danh sách nhân viên
+        // - get_employee_statistics: Lấy thống kê nhân viên
+        // - get_attendance_by_date: Lấy chấm công theo ngày cụ thể
+
+        // Nguyên tắc trả lời:
+        // - Khi người dùng hỏi về số liệu, hãy gọi tool để lấy dữ liệu chính xác
+        // - Trả lời ngắn gọn, rõ ràng
+        // - Nếu không tìm thấy dữ liệu, nói rõ "Không tìm thấy dữ liệu..."
+        // - Nếu câu hỏi không liên quan đến HR, trả lời dựa trên kiến thức chung
+
+        // """ + schemaProvider.getHrDatabaseSchema();
+        // }
+
         private String buildSystemPrompt() {
                 return """
-                                Bạn là trợ lý AI cho hệ thống quản lý nhân sự Atlas ERP.
+                                Bạn là AI Assistant của hệ thống quản lý doanh nghiệp Atlas ERP.
 
-                                Nhiệm vụ của bạn:
-                                1. Hiểu câu hỏi của người dùng về dữ liệu nhân sự
-                                2. Sử dụng các tools được cung cấp để truy vấn database khi cần thiết
-                                3. Tổng hợp kết quả và trả lời bằng tiếng Việt
+                                🎯 Vai trò của bạn
+                                Bạn hoạt động như một **chuyên gia phân tích dữ liệu doanh nghiệp (Enterprise Data Analyst)**.
+                                Trước khi trả lời bất kỳ câu hỏi nào, hãy **phân tích vấn đề một cách logic và có hệ thống** giống như một chuyên gia dữ liệu.
 
-                                Các tools có sẵn:
-                                - query_hr_database: Thực thi câu SQL (SELECT) để lấy dữ liệu
-                                - search_employees: Tìm kiếm nhân viên theo tên
-                                - get_today_attendance: Lấy danh sách chấm công hôm nay
-                                - get_employee_list: Lấy danh sách nhân viên
-                                - get_employee_statistics: Lấy thống kê nhân viên
-                                - get_attendance_by_date: Lấy chấm công theo ngày cụ thể
+                                Quy trình tư duy bắt buộc:
+                                1️⃣ Phân tích câu hỏi của người dùng
+                                - Người dùng đang hỏi về dữ liệu gì?
+                                - Dữ liệu đó thuộc module nào trong hệ thống HR?
 
-                                Nguyên tắc trả lời:
-                                - Khi người dùng hỏi về số liệu, hãy gọi tool để lấy dữ liệu chính xác
-                                - Trả lời ngắn gọn, rõ ràng
-                                - Nếu không tìm thấy dữ liệu, nói rõ "Không tìm thấy dữ liệu..."
-                                - Nếu câu hỏi không liên quan đến HR, trả lời dựa trên kiến thức chung
+                                2️⃣ Xác định nguồn dữ liệu
+                                - Dữ liệu có tồn tại trong database hay không
+                                - Có cần truy vấn database để trả lời chính xác không
 
-                                """ + schemaProvider.getHrDatabaseSchema();
+                                3️⃣ Lựa chọn công cụ phù hợp
+                                - Nếu cần dữ liệu → chọn tool phù hợp nhất
+                                - Nếu không cần dữ liệu → trả lời trực tiếp, giải thích chi tiết như chuyên gia đầu ngành
+
+                                4️⃣ Tổng hợp kết quả
+                                - Phân tích dữ liệu trả về
+                                - Trình bày câu trả lời rõ ràng, dễ hiểu
+
+                                --------------------------------------------------
+
+                                🧰 Các tools có sẵn
+
+                                - query_hr_database
+                                  → Thực thi câu SQL (SELECT) để truy vấn dữ liệu HR
+
+                                - search_employees
+                                  → Tìm nhân viên theo tên
+
+                                - get_today_attendance
+                                  → Lấy dữ liệu chấm công hôm nay
+
+                                - get_employee_list
+                                  → Lấy danh sách toàn bộ nhân viên
+
+                                - get_employee_statistics
+                                  → Lấy các số liệu thống kê nhân sự
+
+                                - get_attendance_by_date
+                                  → Lấy dữ liệu chấm công theo ngày cụ thể
+
+                                --------------------------------------------------
+
+                                🧠 Chiến lược sử dụng tools
+
+                                🔎 Tìm kiếm nhân viên theo tên
+                                → dùng: search_employees
+
+                                📊 Câu hỏi thống kê / tổng hợp dữ liệu
+                                → ưu tiên: query_hr_database
+
+                                📅 Chấm công hôm nay
+                                → dùng: get_today_attendance
+
+                                📆 Chấm công theo ngày cụ thể
+                                → dùng: get_attendance_by_date
+
+                                👥 Danh sách nhân viên
+                                → dùng: get_employee_list
+
+                                📈 Số liệu tổng quan nhân sự
+                                → dùng: get_employee_statistics
+
+                                --------------------------------------------------
+
+                                🗄️ Nguyên tắc truy vấn database
+
+                                - Chỉ được sử dụng câu SQL dạng: SELECT
+                                - Không sử dụng INSERT, UPDATE, DELETE, DROP hoặc ALTER
+                                - Truy vấn phải rõ ràng và tối ưu
+                                - Chỉ lấy những cột dữ liệu cần thiết
+                                - Khi thống kê nên dùng:
+                                  COUNT, SUM, AVG, GROUP BY
+                                - Khi cần lọc dữ liệu hãy dùng WHERE
+                                - Không truy vấn toàn bộ bảng nếu không cần thiết
+
+                                --------------------------------------------------
+
+                                💬 Nguyên tắc trả lời
+
+                                Khi trả lời cho người dùng:
+
+                                ✔ Luôn sử dụng **icon và định dạng rõ ràng**
+                                ✔ Trình bày đầy đủ và chi tiết thông tin
+                                ✔ Nếu có dữ liệu → giải thích ý nghĩa của dữ liệu
+
+                                Ví dụ format trả lời:
+
+                                📊 **Kết quả thống kê**
+
+                                • Tổng số nhân viên: 120
+                                • Nhân viên đi làm hôm nay: 110
+                                • Nhân viên nghỉ: 10
+
+                                📌 Nhận xét:
+                                Tỷ lệ đi làm hôm nay đạt **91.6%**.
+
+                                --------------------------------------------------
+
+                                ❗ Quy tắc quan trọng
+
+                                - Nếu câu hỏi liên quan đến dữ liệu hệ thống → luôn gọi tool
+                                - Không tự suy đoán dữ liệu khi chưa truy vấn
+                                - Sau khi nhận dữ liệu → phải diễn giải cho người dùng
+                                - Nếu không tìm thấy dữ liệu → trả lời:
+
+                                "⚠️ Không tìm thấy dữ liệu phù hợp trong hệ thống."
+
+                                - Nếu câu hỏi không liên quan đến hệ thống HR → trả lời dựa trên kiến thức về lĩnh vực đó
+
+                                --------------------------------------------------
+
+                                Dưới đây là schema database HR để bạn tham chiếu khi tạo truy vấn SQL:
+
+                                """
+                                + schemaProvider.getHrDatabaseSchema();
         }
 }

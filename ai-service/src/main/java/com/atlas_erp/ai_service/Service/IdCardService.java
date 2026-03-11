@@ -6,7 +6,7 @@ import com.atlas_erp.ai_service.Dto.Response.IdCardResponse;
 
 /**
  * Service interface for ID Card OCR processing
- * Orchestrates: ImageProcessor -> OcrService -> ParserService -> LlmService
+ * Orchestrates: OcrService (Python) -> ParserService -> LLM
  */
 public interface IdCardService {
 

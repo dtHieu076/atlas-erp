@@ -4,7 +4,6 @@ import com.atlas_erp.ai_service.Dto.Request.IdCardRequest;
 import com.atlas_erp.ai_service.Dto.Response.IdCardData;
 import com.atlas_erp.ai_service.Dto.Response.IdCardResponse;
 import com.atlas_erp.ai_service.Service.IdCardService;
-import com.atlas_erp.ai_service.Service.ImageProcessor;
 import com.atlas_erp.ai_service.Service.OcrService;
 import com.atlas_erp.ai_service.Service.ParserService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -27,7 +26,6 @@ import java.util.*;
 @RequiredArgsConstructor
 public class IdCardServiceImpl implements IdCardService {
 
-    private final ImageProcessor imageProcessor;
     private final OcrService ocrService;
     private final ParserService parserService;
     private final ObjectMapper objectMapper;
@@ -93,8 +91,21 @@ public class IdCardServiceImpl implements IdCardService {
             frontData.setRawOcrBack(backData.getRawOcrBack());
 
             // Step 5: Generate formatted text using LLM
-            String formattedText = generateFormattedText(frontData);
-            frontData.setFormattedText(formattedText);
+            // NEW: Use LLM to parse RAW OCR text directly and get all fields
+            IdCardData parsedData = parseWithLLMFromRawOcr(frontText, backText);
+            frontData.setFormattedText(parsedData.getFormattedText());
+
+            // Also update other fields if LLM parsed successfully
+            if (parsedData.getFullName() != null)
+                frontData.setFullName(parsedData.getFullName());
+            if (parsedData.getPlaceOfOrigin() != null)
+                frontData.setPlaceOfOrigin(parsedData.getPlaceOfOrigin());
+            if (parsedData.getHometown() != null)
+                frontData.setHometown(parsedData.getHometown());
+            if (parsedData.getAddress() != null)
+                frontData.setAddress(parsedData.getAddress());
+            if (parsedData.getPermanentAddress() != null)
+                frontData.setPermanentAddress(parsedData.getPermanentAddress());
 
             log.info("ID card processing completed successfully");
 
@@ -233,7 +244,119 @@ public class IdCardServiceImpl implements IdCardService {
         return sb.toString();
     }
 
+    /**
+     * Use LLM to parse RAW OCR text directly
+     * This extracts all fields from raw OCR text and cleans them
+     */
+    private IdCardData parseWithLLMFromRawOcr(String frontText, String backText) {
+        log.info("Parsing ID card data using LLM from RAW OCR...");
+
+        try {
+            List<Map<String, Object>> messages = new ArrayList<>();
+
+            // System message - instruct LLM to parse and return JSON
+            Map<String, Object> systemMsg = new HashMap<>();
+            systemMsg.put("role", "system");
+            systemMsg.put("content",
+                    "Ban la AI chuyen xu ly du lieu OCR tu Can Cuoc Cong Dan Viet Nam.\n" +
+                            "Nhiem vu cua ban:\n" +
+                            "1. Doc du lieu OCR ben duoi (ca mat truoc va mat sau).\n" +
+                            "2. Trich xuat va lam sach cac truong thong tin:\n" +
+                            "   - Loai bo nhan song ngu (Full name, Date of birth, Place of origin...)\n" +
+                            "   - Loai bo text thua (SOCIALIST REPUBLIC, CAN CUOC CONG DAN...)\n" +
+                            "   - Sua loi OCR pho bien\n" +
+                            "3. Chuan hoa:\n" +
+                            "   - Ho ten: viet hoa chu cai dau moi tu\n" +
+                            "   - Gioi tinh: chi 'Nam' hoac 'Nu'\n" +
+                            "   - Dia chi: dung dia danh Viet Nam\n" +
+                            "4. Tra ve JSON chuan (bao gom formattedText):\n" +
+                            "{\"fullName\":\"\",\"dateOfBirth\":\"\",\"gender\":\"\",\"idNumber\":\"\",\"placeOfOrigin\":\"\",\"address\":\"\",\"issueDate\":\"\",\"issuePlace\":\"\",\"ethnicity\":\"\",\"religion\":\"\",\"formattedText\":\"\"}\n"
+                            +
+                            "formattedText co dang: 'Thong tin cua nhan vien nhu sau: <fullName>, sinh ngay <dateOfBirth>, gioi tinh <gender>, so CCCD <idNumber>, que quan <placeOfOrigin>, thuong tru tai <address>.'\n"
+                            +
+                            "Chi tra ve JSON, khong giai thich.");
+            messages.add(systemMsg);
+
+            // User message with RAW OCR text
+            Map<String, Object> userMsg = new HashMap<>();
+            userMsg.put("role", "user");
+            userMsg.put("content", "MAT TRUOC CCCD:\n" + frontText + "\n\nMAT SAU CCCD:\n" + backText);
+            messages.add(userMsg);
+
+            // Build request
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", defaultModel);
+            requestBody.put("messages", messages);
+            requestBody.put("temperature", 0.3);
+
+            // Send request
+            String response = webClient.post()
+                    .uri("/v1/chat/completions")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            // Parse JSON response from LLM
+            JsonNode jsonResponse = objectMapper.readTree(response);
+            String content = jsonResponse.get("choices").get(0).get("message").get("content").asText();
+
+            log.debug("LLM raw response: {}", content);
+
+            // Clean and parse JSON response
+            String jsonStr = cleanJsonResponse(content);
+            JsonNode dataNode = objectMapper.readTree(jsonStr);
+
+            // Map to IdCardData
+            IdCardData data = IdCardData.builder()
+                    .fullName(getTextOrNull(dataNode, "fullName"))
+                    .dateOfBirth(getTextOrNull(dataNode, "dateOfBirth"))
+                    .gender(getTextOrNull(dataNode, "gender"))
+                    .idNumber(getTextOrNull(dataNode, "idNumber"))
+                    .placeOfOrigin(getTextOrNull(dataNode, "placeOfOrigin"))
+                    .hometown(getTextOrNull(dataNode, "placeOfOrigin")) // Map from placeOfOrigin
+                    .address(getTextOrNull(dataNode, "address"))
+                    .permanentAddress(getTextOrNull(dataNode, "address")) // Map from address
+                    .issueDate(getTextOrNull(dataNode, "issueDate"))
+                    .issuePlace(getTextOrNull(dataNode, "issuePlace"))
+                    .ethnicity(getTextOrNull(dataNode, "ethnicity"))
+                    .religion(getTextOrNull(dataNode, "religion"))
+                    .formattedText(getTextOrNull(dataNode, "formattedText"))
+                    .build();
+
+            log.info("Parsed data from LLM: {}", data);
+            return data;
+
+        } catch (Exception e) {
+            log.error("Error parsing with LLM: {}", e.getMessage());
+            // Return empty data with nulls
+            return IdCardData.builder().build();
+        }
+    }
+
+    /**
+     * Clean JSON response from LLM
+     */
+    private String cleanJsonResponse(String content) {
+        content = content.replaceAll("```json", "").replaceAll("```", "");
+        return content.trim();
+    }
+
+    /**
+     * Get text value or null from JSON node
+     */
+    private String getTextOrNull(JsonNode node, String field) {
+        JsonNode fieldNode = node.get(field);
+        if (fieldNode == null || fieldNode.isNull() || fieldNode.asText().isEmpty()) {
+            return null;
+        }
+        return fieldNode.asText();
+    }
+
+    /**
+     * Convert null to empty string
+     */
     private String nullToEmpty(String value) {
-        return value != null ? value : "Không xác định";
+        return value != null ? value : "";
     }
 }
