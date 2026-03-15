@@ -77,22 +77,29 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
         try {
             log.info("✅ HR confirmed! Executing Velero for job {} namespace {}", jobId, job.getTargetNamespace());
 
-            GenericKubernetesResource backupCr = new GenericKubernetesResource();
+            // --- TRONG HÀM executeActualVeleroBackup ---
 
+            GenericKubernetesResource backupCr = new GenericKubernetesResource();
             backupCr.setApiVersion("velero.io/v1");
             backupCr.setKind("Backup");
 
+            // Metadata giữ nguyên
             backupCr.setMetadata(new ObjectMetaBuilder()
                     .withName(job.getVeleroBackupName())
                     .withNamespace("velero")
                     .build());
 
+            // TẠO SPEC
             Map<String, Object> spec = new HashMap<>();
             spec.put("includedNamespaces", List.of(job.getTargetNamespace()));
             spec.put("ttl", "72h0m0s");
 
-            backupCr.setAdditionalProperty("spec", spec);
+            // THAY THẾ DÒNG setAdditionalProperty CŨ BẰNG CÁCH NÀY:
+            Map<String, Object> additionalProps = new HashMap<>();
+            additionalProps.put("spec", spec);
+            backupCr.setAdditionalProperties(additionalProps); // Gán toàn bộ Map
 
+            // Gọi create
             client.genericKubernetesResources("velero.io/v1", "Backup")
                     .inNamespace("velero")
                     .resource(backupCr)
