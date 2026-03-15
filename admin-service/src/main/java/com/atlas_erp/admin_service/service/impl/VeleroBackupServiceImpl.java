@@ -1,12 +1,6 @@
 package com.atlas_erp.admin_service.service.impl;
 
-import com.atlas_erp.admin_service.service.BackupKafkaService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.beans.factory.annotation.Value;
-
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import com.atlas_erp.admin_service.dto.BackupResponseDto;
 import com.atlas_erp.admin_service.entity.BackupJob;
@@ -28,8 +22,6 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashSet;
-import java.util.Arrays;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,57 +30,18 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
 
     // 1. Chỉ khai báo mỗi biến một lần duy nhất
     private final BackupJobRepository backupJobRepository;
-    private final BackupKafkaService backupKafkaService;
     private final KubernetesClient client;
-
-    // Track pending backup responses
-    private final Map<Long, Set<String>> pendingResponses = new ConcurrentHashMap<>();
-
-    private final Set<String> requiredServices;
 
     // 2. Constructor duy nhất để khởi tạo tất cả các trường final
     public VeleroBackupServiceImpl(
-            BackupJobRepository backupJobRepository,
-            BackupKafkaService backupKafkaService,
-            @Value("${backup.required-services:}") String requiredServicesStr) {
+            BackupJobRepository backupJobRepository) {
 
         this.backupJobRepository = backupJobRepository;
-        this.backupKafkaService = backupKafkaService;
 
         // Khởi tạo Kubernetes Client (chỉ 1 lần)
         this.client = new KubernetesClientBuilder().build();
 
-        // Khởi tạo Set các service bắt buộc từ chuỗi config
-        if (requiredServicesStr != null && !requiredServicesStr.trim().isEmpty()) {
-            this.requiredServices = new HashSet<>(Arrays.asList(requiredServicesStr.split(",")));
-        } else {
-            this.requiredServices = new HashSet<>();
-        }
-
-        log.info("Initialized backup tracking for services: {}", requiredServices);
-    }
-
-    /**
-     * Kafka listener for backup status responses
-     */
-    @KafkaListener(topics = "erp-backup-status")
-    public void handleBackupStatus(String message) {
-        // Expected format: "hr-service:Đã thành công"
-        String[] parts = message.split(":", 2);
-        if (parts.length == 2) {
-            String serviceName = parts[0].trim();
-            String status = parts[1].trim();
-
-            // Gọi service trung gian xử lý logic Kafka
-            backupKafkaService.handleStatusResponse(serviceName, status);
-            log.info("Received backup status from {}: {}", serviceName, status);
-
-            if (requiredServices.contains(serviceName) && "Đã thành công".equals(status)) {
-                log.info("✅ Backup thành công - Required service {} confirmed!", serviceName);
-            }
-        } else {
-            log.warn("Invalid status message format: {}", message);
-        }
+        log.info("VeleroBackupServiceImpl initialized");
     }
 
     @Override

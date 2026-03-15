@@ -3,7 +3,7 @@ package com.atlas_erp.admin_service.controller;
 import com.atlas_erp.admin_service.dto.BackupRequestDto;
 import com.atlas_erp.admin_service.dto.BackupResponseDto;
 import com.atlas_erp.admin_service.service.VeleroBackupService;
-import com.atlas_erp.admin_service.service.BackupKafkaService;
+import com.atlas_erp.admin_service.event.BackupKafkaService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
