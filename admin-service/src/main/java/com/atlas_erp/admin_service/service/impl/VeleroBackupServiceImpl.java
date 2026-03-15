@@ -78,6 +78,7 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
             log.info("✅ HR confirmed! Executing Velero for job {} namespace {}", jobId, job.getTargetNamespace());
 
             GenericKubernetesResource backupCr = new GenericKubernetesResource();
+
             backupCr.setApiVersion("velero.io/v1");
             backupCr.setKind("Backup");
 
@@ -90,12 +91,12 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
             spec.put("includedNamespaces", List.of(job.getTargetNamespace()));
             spec.put("ttl", "72h0m0s");
 
-            backupCr.getAdditionalProperties().put("spec", spec);
+            backupCr.setAdditionalProperty("spec", spec);
 
             client.genericKubernetesResources("velero.io/v1", "Backup")
                     .inNamespace("velero")
                     .resource(backupCr)
-                    .serverSideApply();
+                    .create();
 
             job.setStatus(BackupStatus.IN_PROGRESS);
             backupJobRepository.save(job);
@@ -119,7 +120,8 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
             return;
         }
 
-        Set<String> completed = completedServicesMap.computeIfAbsent(jobId, k -> new HashSet<>());
+        Set<String> completed = completedServicesMap.computeIfAbsent(jobId,
+                k -> ConcurrentHashMap.newKeySet());
         completed.add(serviceName);
 
         log.info("Job {} {} confirmed ({}). Waiting for: {}", jobId, serviceName, completed.size(),
