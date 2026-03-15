@@ -3,6 +3,7 @@ package com.atlas_erp.admin_service.controller;
 import com.atlas_erp.admin_service.dto.BackupRequestDto;
 import com.atlas_erp.admin_service.dto.BackupResponseDto;
 import com.atlas_erp.admin_service.service.VeleroBackupService;
+import com.atlas_erp.admin_service.service.BackupKafkaService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,9 +17,17 @@ import java.util.List;
 public class BackupController {
 
     private final VeleroBackupService veleroBackupService;
+    private final BackupKafkaService backupKafkaService;
 
-    public BackupController(VeleroBackupService veleroBackupService) {
+    public BackupController(VeleroBackupService veleroBackupService, BackupKafkaService backupKafkaService) {
         this.veleroBackupService = veleroBackupService;
+        this.backupKafkaService = backupKafkaService;
+    }
+
+    @PostMapping("/testBackup")
+    public ResponseEntity<String> testBackup() {
+        backupKafkaService.sendBackupCommand();
+        return ResponseEntity.ok("Backup command sent to erp-backup-commands. Check logs for status.");
     }
 
     @PostMapping

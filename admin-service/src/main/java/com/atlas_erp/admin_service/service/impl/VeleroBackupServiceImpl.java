@@ -1,5 +1,13 @@
 package com.atlas_erp.admin_service.service.impl;
 
+import com.atlas_erp.admin_service.service.BackupKafkaService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.beans.factory.annotation.Value;
+
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.atlas_erp.admin_service.dto.BackupResponseDto;
 import com.atlas_erp.admin_service.entity.BackupJob;
 import com.atlas_erp.admin_service.enums.BackupStatus;
@@ -20,34 +28,79 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class VeleroBackupServiceImpl implements VeleroBackupService {
 
+    // 1. Chỉ khai báo mỗi biến một lần duy nhất
     private final BackupJobRepository backupJobRepository;
-    private final KubernetesClient client; // 🌟 Tái sử dụng Client
+    private final BackupKafkaService backupKafkaService;
+    private final KubernetesClient client;
 
-    public VeleroBackupServiceImpl(BackupJobRepository backupJobRepository) {
+    // Track pending backup responses
+    private final Map<Long, Set<String>> pendingResponses = new ConcurrentHashMap<>();
+
+    private final Set<String> requiredServices;
+
+    // 2. Constructor duy nhất để khởi tạo tất cả các trường final
+    public VeleroBackupServiceImpl(
+            BackupJobRepository backupJobRepository,
+            BackupKafkaService backupKafkaService,
+            @Value("${backup.required-services:}") String requiredServicesStr) {
+
         this.backupJobRepository = backupJobRepository;
-        // Khởi tạo client 1 lần duy nhất khi Service được tạo
+        this.backupKafkaService = backupKafkaService;
+
+        // Khởi tạo Kubernetes Client (chỉ 1 lần)
         this.client = new KubernetesClientBuilder().build();
+
+        // Khởi tạo Set các service bắt buộc từ chuỗi config
+        if (requiredServicesStr != null && !requiredServicesStr.trim().isEmpty()) {
+            this.requiredServices = new HashSet<>(Arrays.asList(requiredServicesStr.split(",")));
+        } else {
+            this.requiredServices = new HashSet<>();
+        }
+
+        log.info("Initialized backup tracking for services: {}", requiredServices);
+    }
+
+    /**
+     * Kafka listener for backup status responses
+     */
+    @KafkaListener(topics = "erp-backup-status")
+    public void handleBackupStatus(String message) {
+        // Expected format: "hr-service:Đã thành công"
+        String[] parts = message.split(":", 2);
+        if (parts.length == 2) {
+            String serviceName = parts[0].trim();
+            String status = parts[1].trim();
+
+            // Gọi service trung gian xử lý logic Kafka
+            backupKafkaService.handleStatusResponse(serviceName, status);
+            log.info("Received backup status from {}: {}", serviceName, status);
+
+            if (requiredServices.contains(serviceName) && "Đã thành công".equals(status)) {
+                log.info("✅ Backup thành công - Required service {} confirmed!", serviceName);
+            }
+        } else {
+            log.warn("Invalid status message format: {}", message);
+        }
     }
 
     @Override
     @Transactional
     public BackupResponseDto triggerBackup(String targetNamespace) {
-
-        // 1. Khởi tạo tên Backup ngay từ đầu
         String backupName = "manual-backup-" + Instant.now().toEpochMilli();
 
-        // 2. Lưu trạng thái PENDING kèm tên dự kiến để dễ tracking nếu có lỗi
         BackupJob job = new BackupJob(targetNamespace, BackupStatus.PENDING);
         job.setVeleroBackupName(backupName);
         job = backupJobRepository.save(job);
 
         try {
-            // 3. Chuẩn bị "Phiếu gọi món" (Custom Resource)
             GenericKubernetesResource backupCr = new GenericKubernetesResource();
             backupCr.setApiVersion("velero.io/v1");
             backupCr.setKind("Backup");
@@ -63,26 +116,20 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
 
             backupCr.getAdditionalProperties().put("spec", spec);
 
-            // 4. Đẩy lệnh lên K8s API Server
             client.genericKubernetesResources("velero.io/v1", "Backup")
                     .inNamespace("velero")
                     .resource(backupCr)
                     .serverSideApply();
 
-            // 5. Nếu không có lỗi, chuyển thành IN_PROGRESS
-            // (Việc chuyển thành COMPLETED/FAILED tiếp theo sẽ do lớp Watcher đảm nhận)
             job.setStatus(BackupStatus.IN_PROGRESS);
             backupJobRepository.save(job);
 
             return mapToDto(job);
 
         } catch (KubernetesClientException e) {
-            // Ghi nhận lỗi vào DB nếu K8s từ chối lệnh
             job.setStatus(BackupStatus.FAILED);
             backupJobRepository.save(job);
-
-            throw new RuntimeException(
-                    "Failed to trigger Velero backup for namespace: " + targetNamespace, e);
+            throw new RuntimeException("Failed to trigger Velero backup: " + targetNamespace, e);
         }
     }
 
@@ -103,7 +150,6 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
                 job.getCreatedAt());
     }
 
-    // Đóng kết nối gọn gàng khi ứng dụng tắt
     @PreDestroy
     public void closeClient() {
         if (this.client != null) {
