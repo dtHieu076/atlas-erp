@@ -4,14 +4,14 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 
 import com.atlas_erp.admin_service.dto.BackupResponseDto;
+import com.atlas_erp.admin_service.dto.VeleroBackup;
+import com.atlas_erp.admin_service.dto.VeleroBackupSpec;
 import com.atlas_erp.admin_service.entity.BackupJob;
 import com.atlas_erp.admin_service.enums.BackupStatus;
 import com.atlas_erp.admin_service.repository.BackupJobRepository;
 import com.atlas_erp.admin_service.service.VeleroBackupService;
 import com.atlas_erp.admin_service.event.BackupKafkaService;
 
-import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
-import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.KubernetesClientException;
@@ -75,46 +75,43 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
         BackupJob job = backupJobRepository.findById(jobId).orElseThrow();
 
         try {
-            log.info("✅ HR confirmed! Executing Velero for job {} namespace {}", jobId, job.getTargetNamespace());
+            log.info(">>>> [START] executeActualVeleroBackup for Job: {}", jobId);
+            log.info("========== PREPARING TYPED DATA FOR VELERO ==========");
 
-            // --- TRONG HÀM executeActualVeleroBackup ---
+            // 1. Khởi tạo đối tượng VeleroBackup bằng Class tự định nghĩa
+            VeleroBackup backupResource = new VeleroBackup();
 
-            GenericKubernetesResource backupCr = new GenericKubernetesResource();
-            backupCr.setApiVersion("velero.io/v1");
-            backupCr.setKind("Backup");
+            // Set Metadata
+            backupResource.getMetadata().setName(job.getVeleroBackupName());
+            backupResource.getMetadata().setNamespace("velero");
 
-            // Metadata giữ nguyên
-            backupCr.setMetadata(new ObjectMetaBuilder()
-                    .withName(job.getVeleroBackupName())
-                    .withNamespace("velero")
-                    .build());
+            // Set Spec
+            VeleroBackupSpec spec = new VeleroBackupSpec();
+            spec.setIncludedNamespaces(java.util.List.of(job.getTargetNamespace()));
+            spec.setTtl("72h0m0s");
+            backupResource.setSpec(spec);
 
-            // TẠO SPEC
-            Map<String, Object> spec = new HashMap<>();
-            spec.put("includedNamespaces", List.of(job.getTargetNamespace()));
-            spec.put("ttl", "72h0m0s");
+            log.info(">>>> CALLING KUBERNETES API (TYPED RESOURCE CREATE)...");
 
-            // THAY THẾ DÒNG setAdditionalProperty CŨ BẰNG CÁCH NÀY:
-            Map<String, Object> additionalProps = new HashMap<>();
-            additionalProps.put("spec", spec);
-            backupCr.setAdditionalProperties(additionalProps); // Gán toàn bộ Map
-
-            // Gọi create
-            client.genericKubernetesResources("velero.io/v1", "Backup")
+            // 2. Gửi request. Fabric8 sẽ tự động hiểu cách đẩy lên K8s.
+            VeleroBackup result = client.resources(VeleroBackup.class)
                     .inNamespace("velero")
-                    .resource(backupCr)
+                    .resource(backupResource)
                     .create();
 
-            job.setStatus(BackupStatus.IN_PROGRESS);
-            backupJobRepository.save(job);
+            log.info("✅ VELERO BACKUP CREATED! Name: {}, UID: {}",
+                    result.getMetadata().getName(),
+                    result.getMetadata().getUid());
 
-            log.info("✅ Velero backup {} triggered successfully", job.getVeleroBackupName());
-            completedServicesMap.remove(jobId); // Cleanup
+            job.setStatus(BackupStatus.IN_PROGRESS);
+            backupJobRepository.saveAndFlush(job);
+
+            completedServicesMap.remove(jobId);
 
         } catch (Exception e) {
+            log.error("❌ ERROR DURING VELERO CREATION STEP FOR JOB {}: {}", jobId, e.getMessage(), e);
             job.setStatus(BackupStatus.FAILED);
-            backupJobRepository.save(job);
-            log.error("❌ Velero backup failed for job {}", jobId, e);
+            backupJobRepository.saveAndFlush(job);
         }
     }
 
@@ -185,4 +182,5 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
             this.client.close();
         }
     }
+
 }
