@@ -62,7 +62,9 @@ public class BackupEventService {
 
         // Thư mục lưu trữ local (Sửa lại đường dẫn phù hợp với máy bạn hoặc K8s mount
         // path)
-        String backupDir = "C:\\Users\\Public\\DAIHOC\\wood-erp-platform\\hr-service\\src\\main\\java\\com\\atlas_erp\\hr_service\\Event";
+        // String backupDir =
+        // "C:\\Users\\Public\\DAIHOC\\wood-erp-platform\\hr-service\\src\\main\\java\\com\\atlas_erp\\hr_service\\Event";
+        String backupDir = "/app/backups";
         File directory = new File(backupDir);
         if (!directory.exists())
             directory.mkdirs();

@@ -14,6 +14,13 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
+# 1. Cài đặt postgresql-client để chạy pg_dump
+# 2. Cài tzdata để đồng bộ múi giờ
+RUN apk update && apk add --no-cache postgresql-client tzdata
+ENV TZ=Asia/Ho_Chi_Minh
+
+COPY certs/ ./certs/
+
 # Tải Agent trực tiếp từ GitHub (Dùng bản OpenTelemetry chuẩn)
 ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 
