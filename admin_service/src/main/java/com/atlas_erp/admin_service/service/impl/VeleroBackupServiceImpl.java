@@ -12,6 +12,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 
+import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,25 +23,31 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@Transactional
 public class VeleroBackupServiceImpl implements VeleroBackupService {
 
     private final BackupJobRepository backupJobRepository;
+    private final KubernetesClient client; // 🌟 Tái sử dụng Client
 
     public VeleroBackupServiceImpl(BackupJobRepository backupJobRepository) {
         this.backupJobRepository = backupJobRepository;
+        // Khởi tạo client 1 lần duy nhất khi Service được tạo
+        this.client = new KubernetesClientBuilder().build();
     }
 
     @Override
+    @Transactional
     public BackupResponseDto triggerBackup(String targetNamespace) {
 
+        // 1. Khởi tạo tên Backup ngay từ đầu
+        String backupName = "manual-backup-" + Instant.now().toEpochMilli();
+
+        // 2. Lưu trạng thái PENDING kèm tên dự kiến để dễ tracking nếu có lỗi
         BackupJob job = new BackupJob(targetNamespace, BackupStatus.PENDING);
-        backupJobRepository.save(job);
+        job.setVeleroBackupName(backupName);
+        job = backupJobRepository.save(job);
 
-        try (KubernetesClient client = new KubernetesClientBuilder().build()) {
-
-            String backupName = "manual-backup-" + Instant.now().toEpochMilli();
-
+        try {
+            // 3. Chuẩn bị "Phiếu gọi món" (Custom Resource)
             GenericKubernetesResource backupCr = new GenericKubernetesResource();
             backupCr.setApiVersion("velero.io/v1");
             backupCr.setKind("Backup");
@@ -56,19 +63,21 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
 
             backupCr.getAdditionalProperties().put("spec", spec);
 
-            client.resources(GenericKubernetesResource.class)
+            // 4. Đẩy lệnh lên K8s API Server
+            client.genericKubernetesResources("velero.io/v1", "Backup")
                     .inNamespace("velero")
                     .resource(backupCr)
                     .serverSideApply();
 
-            job.setVeleroBackupName(backupName);
+            // 5. Nếu không có lỗi, chuyển thành IN_PROGRESS
+            // (Việc chuyển thành COMPLETED/FAILED tiếp theo sẽ do lớp Watcher đảm nhận)
             job.setStatus(BackupStatus.IN_PROGRESS);
             backupJobRepository.save(job);
 
             return mapToDto(job);
 
         } catch (KubernetesClientException e) {
-
+            // Ghi nhận lỗi vào DB nếu K8s từ chối lệnh
             job.setStatus(BackupStatus.FAILED);
             backupJobRepository.save(job);
 
@@ -92,5 +101,13 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
                 job.getTargetNamespace(),
                 job.getStatus(),
                 job.getCreatedAt());
+    }
+
+    // Đóng kết nối gọn gàng khi ứng dụng tắt
+    @PreDestroy
+    public void closeClient() {
+        if (this.client != null) {
+            this.client.close();
+        }
     }
 }

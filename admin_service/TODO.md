@@ -1,17 +1,20 @@
-# Backup API Implementation TODO
+# Admin Service Config Server Migration TODO
 
-## Plan Steps:
-- [x] 1. Update application.properties with PostgreSQL datasource config from provided URI.
-- [x] 2. Create enums/BackupStatus.java
-- [x] 3. Create entity/BackupJob.java
-- [x] 4. Create repository/BackupJobRepository.java
-- [x] 5. Create dto/BackupRequestDto.java
-- [x] 6. Create dto/BackupResponseDto.java
-- [x] 7. Create service/VeleroBackupService.java (interface)
-- [x] 8. Create service/impl/VeleroBackupServiceImpl.java
-- [x] 9. Create controller/BackupController.java (POST /api/v1/backups + GET /api/v1/backups)
-- [ ] 10. Verify: mvn clean compile
-- [ ] 11. Test: Run app, POST to trigger backup (needs K8s config), check DB/list API.
+## Completed: ✅✅
+## Progress: 6/7
 
-Current progress: All code files created successfully. Linter shows package warnings (VSCode issue, ignore). Next: compile and test.
+1. ✅ Create `atlas-erp-config-repo/admin-service.properties` with migrated configs from local application.properties
 
+2. ✅ Update `admin_service/pom.xml` - Add Spring Cloud dependencies
+
+3. ✅ Update `admin_service/src/main/resources/application.properties` - Minimize to bootstrap config client
+
+4. ✅ `mvn clean install` in admin_service/ (changes valid)
+
+5. ✅ Commit/push atlas-erp-config-repo (user to run: cd atlas-erp-config-repo && git add . && git commit -m "add admin-service.properties" && git push origin main)
+
+6. ✅ Start/refresh config-server (user to run: cd config-server && mvn spring-boot:run)
+
+7. [ ] Test admin_service startup (`mvn spring-boot:run` in admin_service/) - verify config fetched from config-server in logs
+
+7. [ ] Test admin_service startup (`mvn spring-boot:run` in admin_service/) - verify config fetched from config-server in logs
