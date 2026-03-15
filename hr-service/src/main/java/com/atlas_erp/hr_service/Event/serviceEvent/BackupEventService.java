@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -36,21 +37,51 @@ public class BackupEventService {
     public void handleBackupCommand(String message) {
         log.info("HR Service received backup command: {}", message);
 
+        // New format: "jobId:Cần backup"
+        String[] parts = message.split(":", 2);
+        if (parts.length == 2) {
+            try {
+                UUID jobId = UUID.fromString(parts[0]);
+                String command = parts[1];
+
+                if ("Cần backup".equals(command)) {
+                    try {
+                        // 1. Thực hiện dump DB
+                        String filePath = executeDump();
+                        log.info("Job {} - Database dumped successfully to: {}", jobId, filePath);
+
+                        // 2. Gửi status với Job ID: "jobId:hr-service:Đã thành công"
+                        String statusMessage = jobId.toString() + ":hr-service:Đã thành công";
+                        kafkaTemplate.send(STATUS_TOPIC, "hr-service-job-" + jobId, statusMessage);
+                        log.info("Job {} - HR Service sent success status to Kafka", jobId);
+
+                    } catch (Exception e) {
+                        log.error("Job {} - Failed to dump database: {}", jobId, e.getMessage());
+                        // Gửi lỗi với Job ID
+                        String errorMessage = jobId.toString() + ":hr-service:Lỗi - " + e.getMessage();
+                        kafkaTemplate.send(STATUS_TOPIC, "hr-service-job-" + jobId, errorMessage);
+                    }
+                }
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid Job ID in command, ignoring: {}", message);
+                // Fallback to old logic for compatibility
+                handleLegacyCommand(message);
+            }
+        } else {
+            // Fallback for old format
+            handleLegacyCommand(message);
+        }
+    }
+
+    private void handleLegacyCommand(String message) {
         if ("Cần backup".equals(message)) {
             try {
-                // 1. Thực hiện dump DB
                 String filePath = executeDump();
-                log.info("Database dumped successfully to: {}", filePath);
-
-                // 2. Chỉ khi dump thành công mới gửi tin nhắn xác nhận
+                log.info("Legacy - Database dumped to: {}", filePath);
                 String statusMessage = "hr-service:Đã thành công";
                 kafkaTemplate.send(STATUS_TOPIC, "hr-service-key", statusMessage);
-                log.info("HR Service sent success status to Kafka");
-
             } catch (Exception e) {
-                log.error("Failed to dump database: {}", e.getMessage());
-                // Gửi thông báo lỗi (tùy chọn)
-                kafkaTemplate.send(STATUS_TOPIC, "hr-service:Lỗi - " + e.getMessage());
+                log.error("Legacy backup failed: {}", e.getMessage());
             }
         }
     }
@@ -60,10 +91,6 @@ public class BackupEventService {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String fileName = "hr_backup_" + timestamp + ".sql";
 
-        // Thư mục lưu trữ local (Sửa lại đường dẫn phù hợp với máy bạn hoặc K8s mount
-        // path)
-        // String backupDir =
-        // "C:\\Users\\Public\\DAIHOC\\wood-erp-platform\\hr-service\\src\\main\\java\\com\\atlas_erp\\hr_service\\Event";
         String backupDir = "/app/backups";
         File directory = new File(backupDir);
         if (!directory.exists())
@@ -71,15 +98,13 @@ public class BackupEventService {
 
         String fullPath = backupDir + "/" + fileName;
 
-        // Phân tích JDBC URL để lấy Host, Port, DB Name
-        // jdbc:postgresql://<host>:<port>/<db_name>
+        // Parse JDBC URL
         String cleanUrl = dbUrl.replace("jdbc:postgresql://", "");
         String hostAndPort = cleanUrl.split("/")[0];
         String dbName = cleanUrl.split("/")[1].split("\\?")[0];
 
         log.info("Starting pg_dump for database: {}", dbName);
 
-        // Xây dựng lệnh pg_dump
         ProcessBuilder pb = new ProcessBuilder(
                 "pg_dump",
                 "-h", hostAndPort.split(":")[0],
@@ -88,7 +113,6 @@ public class BackupEventService {
                 "-f", fullPath,
                 dbName);
 
-        // Truyền mật khẩu qua biến môi trường (PGPASSWORD)
         pb.environment().put("PGPASSWORD", dbPassword);
         pb.redirectErrorStream(true);
 

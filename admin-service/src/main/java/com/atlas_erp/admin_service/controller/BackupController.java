@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/backups")
@@ -26,7 +27,7 @@ public class BackupController {
 
     @PostMapping("/testBackup")
     public ResponseEntity<String> testBackup() {
-        backupKafkaService.sendBackupCommand();
+        backupKafkaService.sendBackupCommand(UUID.randomUUID());
         return ResponseEntity.ok("Backup command sent to erp-backup-commands. Check logs for status.");
     }
 

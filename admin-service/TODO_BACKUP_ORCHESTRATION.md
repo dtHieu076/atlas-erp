@@ -45,4 +45,4 @@
 3. Deploy + monitor logs
 4. Cấu hình PV/annotations cho services (hr/org/workflow) để Velero backup /app/backups
 
-**STATUS: READY TO IMPLEMENT - AWAITING USER CONFIRMATION**
+**STATUS
