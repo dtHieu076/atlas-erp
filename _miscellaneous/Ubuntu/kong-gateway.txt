@@ -1,0 +1,86 @@
+---------------------------------------------------------------------
+Cài đặt Helm
+Hiện nay, tiêu chuẩn chung của hệ thống Kubernetes là sử dụng Helm.
+Helm hoạt động giống hệt như một cái "App Store" (hoặc giống như lệnh apt trên Ubuntu) nhưng dành riêng cho Kubernetes.
+
+Bước 1: Tải và cài đặt Helm
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+sudo ./get_helm.sh
+
+Bước 2: Cấp quyền cho Helm điều khiển K3s
+Vì K3s bảo mật file cấu hình rất kỹ, chúng ta cần copy file đó ra thư mục của tài khoản hieu để Helm có thể đọc được và ra lệnh cho hệ thống:
+mkdir -p ~/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+sudo chown $USER:$USER ~/.kube/config
+
+helm version
+
+---------------------------------------------------------------------
+Cài đặt Kong Gateway
+
+Bước 1: Thêm kho chứa (catalog) của Kong vào Helm
+Lệnh này giúp Helm biết chỗ để tìm tải phần mềm Kong chính chủ:
+helm repo add kong https://charts.konghq.com
+helm repo update
+
+Bước 2: Ra lệnh cho Helm cài đặt Kong Gateway
+Lệnh này sẽ tự động tải các cấu hình mới nhất và tạo một không gian riêng (namespace) tên là kong cho Gateway của bạn:
+
+Bước 3: Kiểm tra trạng thái của Kong
+Giống như lúc cài hr-service, chúng ta cần đợi một chút để các "nhân viên gác cổng" của Kong tải về và khởi động. Bạn gõ lệnh sau để theo dõi:
+sudo k3s kubectl get pods -n kong -w
+=> Khi nào bạn thấy các Pod của Kong (thường là 2 Pod: một cái tên là controller và một cái tên là gateway) hiện trạng thái Running
+
+---------------------------------------------------------------------
+Cấu hình file ingress.yaml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: erp-platform-ingress
+  annotations:
+    konghq.com/strip-path: "true"
+spec:
+  ingressClassName: kong
+  rules:
+  - http:
+      paths:
+      - path: /hr
+        pathType: Prefix
+        backend:
+          service:
+            name: hr-service
+            port:
+              number: 80
+      - path: /admin
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-service
+            port:
+              number: 80
+
+---------------------------------------------------------------------
+Bước 1: Kiểm tra bản đồ đã tồn tại chưa
+Gõ lệnh này để xem K8s đã nhận được file Ingress nào chưa:
+sudo k3s kubectl get ingress
+
+Bước 2: Nạp bản đồ (Nếu Bước 1 chưa có)
+Nếu bạn chưa nạp, hãy chạy lệnh này (đảm bảo bạn đang đứng ở thư mục chứa file ingress.yaml lúc nãy nhé):
+sudo k3s kubectl apply -f ingress.yaml
+
+---------------------------------------------------------------------
+Bất cứ khi nào bạn muốn thay đổi bản đồ điều hướng
+
+Bước 1: Mở file ra và sửa đổi
+Bạn dùng lệnh quen thuộc để mở file:
+nano ingress.yaml
+
+Bước 2: Chạy lại lệnh apply
+Bạn gõ y hệt lệnh mà bạn đã dùng để tạo nó lúc nãy:
+sudo k3s kubectl apply -f ingress.yaml
+
+---------------------------------------------------------------------
+Để truy cập vào ứng dụng từ máy Windows, chúng ta cần biết Kong Gateway đang đứng đón khách ở cổng (port) nào trên máy Master.
+sudo k3s kubectl get svc -n kong

@@ -1,0 +1,63 @@
+Các bước thiết lập Volume dùng chung
+Bước A: Cài đặt NFS Server trên Master Node (Linux)
+Chạy các lệnh này trên máy Master:
+
+Bash
+sudo apt update
+sudo apt install nfs-kernel-server -y
+sudo mkdir -p /data/shared-erp-backups
+sudo chown nobody:nogroup /data/shared-erp-backups
+sudo chmod 777 /data/shared-erp-backups
+# Thêm dòng sau vào /etc/exports
+echo "/data/shared-erp-backups *(rw,sync,no_subtree_check,no_root_squash)" | sudo tee -a /etc/exports
+sudo exportfs -a
+sudo systemctl restart nfs-kernel-server
+
+-------------------------------------------------------------------------------------------
+Bước B: Tạo PVC dùng chung (K8s YAML)
+Bạn tạo file shared-backup-pvc.yaml:
+
+YAML
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: shared-backup-pv
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany 
+  persistentVolumeReclaimPolicy: Retain # Giữ lại dữ liệu ngay cả khi xóa PVC
+  storageClassName: manual # Định danh để PVC dễ tìm thấy PV này
+  nfs:
+    server: 192.168.x.x # <--- THAY BẰNG IP CỦA MASTER SERVER (hostname -I)
+    path: /data/shared-erp-backups
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-backup-pvc
+spec:
+  storageClassName: manual # Phải khớp với PV ở trên
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+
+--------------------------------------------------------------------------------------
+3. Cấu hình Pod cho tất cả các Services
+Trong file deployment.yaml của tất cả các service (admin, hr, org...), bạn dùng chung cái PVC này:
+
+YAML
+spec:
+  containers:
+  - name: erp-service
+    volumeMounts:
+    - name: backup-volume
+      mountPath: /app/backups # 🌟 Tất cả dùng chung đường dẫn này trong code Java
+  volumes:
+  - name: backup-volume
+    persistentVolumeClaim:
+      claimName: shared-backup-pvc

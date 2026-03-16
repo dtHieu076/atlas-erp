@@ -1,5 +1,7 @@
 """Services for OCR processing"""
-from app.services.easyocr_service import EasyOCRService
+"""Services for OCR processing (YOLO + VietOCR)"""
+from .yolo_service import YoloService
+from .vietocr_service import VietOcrService
 
-__all__ = ["EasyOCRService"]
+__all__ = ["YoloService", "VietOcrService"]
 

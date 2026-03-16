@@ -1,0 +1,104 @@
+Việc tiếp theo là đưa "công nhân" (hr-service) vào làm việc.
+Để làm điều này, chúng ta sẽ tạo 2 file YAML cơ bản nhất trên máy Master (192.168.74.129)
+
+Bước 1: Tạo thư mục chứa code
+mkdir hr-k8s && cd hr-k8s
+
+Bước 2: Tạo file hr-deployment.yaml
+nano hr-deployment.yaml
+
+Bước 3: Tạo file hr-service.yaml
+nano hr-service.yaml
+
+Bước 4: Khởi chạy
+sudo k3s kubectl apply -f .
+
+Xem K8s đang tạo Pod:
+sudo k3s kubectl get pods -w
+
+Khi nào cột STATUS hiện chữ Running thì bấm Ctrl + C để thoát màn hình theo dõi
+Mở trình duyệt Chrome trên Windows và truy cập http://192.168.74.129:30001
+
+
+--------------------------------------------------------------------------------------
+- Khởi chạy: sudo k3s kubectl apply -R -f k8s/
+- Kiểm tra lỗi pod: sudo k3s kubectl describe pod config-server-deployment-8b9865475-k2czl
+- Kiểm tra logs: sudo k3s kubectl logs admin-deployment-68d45db944-9rvwc 
+- Xóa sạch: sudo k3s kubectl delete -R -f k8s/
+- Kiểm tra DNS service: sudo k3s kubectl get svc
+- Xóa sạch tiến trình :sudo k3s-killall.sh
+- Xóa pod: sudo k3s kubectl delete pod config-server-deployment-7c5c9ff49-nmgl4
+- Dóng: sudo systemctl stop k3s
+- Mở: sudo systemctl start k3s
+--------------------------------------------------------------------------------------
+
+
+* File hr-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hr-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hr-api
+  template:
+    metadata:
+      labels:
+        app: hr-api
+    spec:
+      containers:
+      - name: hr-container
+        image: dthieudocker/hr-service:v1.0
+        ports:
+        - containerPort: 8080
+
+
+* File hr-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hr-service
+spec:
+  selector:
+    app: hr-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080 # <-- Số này phải khớp với containerPort ở file trên
+  type: ClusterIP
+
+
+--------------------------------------------------------------------------------
+Trong hr-service.yaml
+
+Dưới đây là 4 loại type cơ bản của K8s Service, xếp theo mức độ "mở cửa" ra bên ngoài:
+
+1. ClusterIP (Mặc định - Chỉ dùng nội bộ)
+Là gì: Cấp cho Service một địa chỉ IP nội bộ. Chỉ các ứng dụng nằm bên trong cụm K8s mới gọi được cho nhau. Người ngoài Internet (hoặc máy Windows của bạn) hoàn toàn không thể nhìn thấy IP này.
+
+Ví dụ thực tế: Số điện thoại nội bộ (máy nhánh). Phòng hr-service gọi cho phòng database-service.
+
+Khi nào dùng: Dùng cho 90% các microservices của bạn. Trong hệ thống thực tế, các service như Kho, Kế toán, Nhân sự chỉ cần nói chuyện với nhau và nói chuyện với Kong Gateway qua ClusterIP. Không cho phép ai gọi trực tiếp từ ngoài vào.
+
+2. NodePort (Mở cổng ngách - Dùng để test)
+Là gì: Mở một cổng cụ thể (thường nằm trong khoảng 30000 - 32767) trên tất cả các máy chủ (Node) của cụm. Ai biết địa chỉ IP của máy chủ và số cổng này đều có thể truy cập thẳng vào ứng dụng.
+
+Ví dụ thực tế: Bạn đục một cái cửa phụ ở hông tòa nhà và ghi số 30001. Ai đi ngang qua biết chỗ mở cửa là vào được.
+
+Khi nào dùng: Rất tốt để các lập trình viên test nhanh ứng dụng trong môi trường phát triển (giống như bạn vừa làm lúc nãy). Không bao giờ dùng NodePort cho môi trường Production (Chạy thực tế) vì nó kém bảo mật và khó quản lý cổng.
+
+3. LoadBalancer (Mở cửa chính - Cấp IP Public)
+Là gì: Cách chuẩn nhất để đưa ứng dụng ra Internet. K8s sẽ yêu cầu nhà cung cấp hạ tầng (như AWS, Google Cloud, Azure) cấp một địa chỉ IP Public (IP tĩnh mặt tiền) và tự động cân bằng tải luồng truy cập vào các Node.
+
+Ví dụ thực tế: Tòa nhà thuê một lễ tân chuyên nghiệp đứng ở cửa chính, có số hotline đẹp (IP Public). Khách cứ gọi hotline, lễ tân sẽ tự động chia đều khách cho các quầy phục vụ bên trong.
+
+Khi nào dùng: Khi bạn muốn mở một ứng dụng ra Internet. Trong kiến trúc của bạn, chỉ có duy nhất Kong Gateway là nên được cấu hình type LoadBalancer (hoặc cấu hình để nhận IP Public). Kong sẽ là lễ tân duy nhất, đứng chặn ở cửa để kiểm tra vé rồi mới chia khách vào cho các ClusterIP bên trong.
+
+4. ExternalName (Chuyển hướng ra ngoài)
+Là gì: Không điều hướng truy cập vào bên trong K8s, mà làm ngược lại: tạo ra một bí danh (alias) nội bộ để trỏ ra một dịch vụ bên ngoài.
+
+Ví dụ thực tế: Danh bạ gọi nhanh. Đặt tên "Dịch vụ Thuế" trong máy điện thoại nội bộ, nhưng khi nhân viên bấm gọi, tổng đài tự động chuyển hướng cuộc gọi ra ngoài hệ thống mạng quốc gia.
+
+Khi nào dùng: Khi ứng dụng K8s của bạn cần gọi đến một database nằm ngoài cụm (ví dụ: Amazon RDS) mà bạn không muốn code phải nhớ địa chỉ IP/Domain thực tế của database đó.

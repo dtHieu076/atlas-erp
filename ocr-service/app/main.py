@@ -7,7 +7,7 @@ from app.routes import ocr
 
 app = FastAPI(
     title="OCR Service",
-    description="Python OCR Service using EasyOCR for Vietnamese text extraction",
+    description="CCCD extraction using YOLOv11 (detection) + VietOCR (recognition)",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -39,10 +39,14 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    from app.services import YoloService, VietOcrService
+    yolo = YoloService()
+    vietocr = VietOcrService()
     return {
         "status": "UP",
         "service": "ocr-service",
-        "ocr": "easyocr",
-        "languages": ["vi", "en"]
+        "yolo_ready": hasattr(yolo, '_model'),
+        "vietocr_ready": hasattr(vietocr, '_predictor'),
+        "device": "cpu"
     }
 

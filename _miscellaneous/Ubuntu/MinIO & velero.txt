@@ -1,0 +1,214 @@
+k8s/
+ ├── ingress.yaml (Gateway chung)
+ ├── hr-k8s/
+ │    ├── deployment.yaml
+ │    └── service.yaml
+ ├── minio-k8s/       <-- Thư mục mới cho MinIO
+ │    ├── secret.yaml (Chứa Cặp khóa Access/Secret)
+ │    ├── pvc.yaml    (Ổ cứng lưu trữ cho MinIO)
+ │    ├── deployment.yaml
+ │    └── service.yaml
+ └── velero-k8s/      <-- Thư mục mới cho Velero
+
+-------------------------------------------------------------------------------------------
+Phần 1: Xây dựng kho chứa MinIO (k8s/minio-k8s/)
+Tạo một thư mục k8s/minio-k8s/ và lần lượt tạo 4 file sau:
+
+1. 01-secret.yaml (Lưu Cặp khóa bảo mật)
+Ở đây tôi đã mã hóa Base64 sẵn cho bạn:
+
+Access Key: minioadmin -> bWluaW9hZG1pbg==
+
+Secret Key: minioadmin123 -> bWluaW9hZG1pbjEyMw==
+
+YAML
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-secret
+  namespace: default
+type: Opaque
+data:
+  MINIO_ROOT_USER: bWluaW9hZG1pbg==
+  MINIO_ROOT_PASSWORD: bWluaW9hZG1pbjEyMw==
+
+2. 02-pvc.yaml (Tạo ổ cứng 10GB cho nhà kho)
+
+YAML
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi # Dung lượng tùy bạn chỉnh sửa
+
+3. 03-deployment.yaml (Triển khai Pod MinIO)
+
+YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        command:
+        - /bin/sh
+        - -c
+        - mkdir -p /data/velero-backups && minio server /data --console-address ":9001"
+        envFrom:
+        - secretRef:
+            name: minio-secret
+        ports:
+        - containerPort: 9000 # Cổng API cho Velero gọi vào
+        - containerPort: 9001 # Cổng giao diện Web (UI)
+        volumeMounts:
+        - name: storage
+          mountPath: "/data"
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: minio-pvc
+(Lưu ý: Trong phần command, tôi đã chèn thêm lệnh mkdir -p /data/velero-backups để nó tự động tạo sẵn một cái thùng chứa (bucket) tên là velero-backups luôn, bạn đỡ phải vào UI tạo bằng tay).
+
+4. 04-service.yaml (Mở cửa nội bộ cho kho MinIO)
+
+YAML
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service
+  namespace: default
+spec:
+  selector:
+    app: minio
+  ports:
+    - name: api
+      port: 9000
+      targetPort: 9000
+    - name: console
+      port: 9001
+      targetPort: 9001
+Thực thi: Chạy lệnh kubectl apply -f k8s/minio-k8s/ để Kubernetes bắt đầu xây kho.
+
+--------------------------------------------------------------------------------------------
+Bước 1: Tải và cài đặt Velero CLI lên Master Node
+Để ra lệnh cho Velero, chúng ta cần cài công cụ dòng lệnh của nó. Hãy chạy lần lượt các lệnh này để tải bản cài đặt về và đưa vào hệ thống:
+
+Bash
+# 1. Tải Velero phiên bản ổn định về máy
+wget https://github.com/vmware-tanzu/velero/releases/download/v1.13.0/velero-v1.13.0-linux-amd64.tar.gz
+# 2. Giải nén file vừa tải
+tar -xvf velero-v1.13.0-linux-amd64.tar.gz
+# 3. Di chuyển file thực thi vào thư mục hệ thống để gõ lệnh 'velero' ở đâu cũng được
+sudo mv velero-v1.13.0-linux-amd64/velero /usr/local/bin/
+
+
+Bước 2: Tạo chìa khóa (Credentials) cho Velero
+Chúng ta sẽ tạo thư mục velero-k8s và làm một file text chứa tài khoản MinIO để giao cho Velero.
+
+Bash
+# 1. Trở về thư mục k8s và tạo thư mục cho velero
+cd ~/k8s
+mkdir -p velero-k8s
+cd velero-k8s
+# 2. Tạo file credentials-velero nhanh bằng lệnh sau (copy toàn bộ dán vào terminal):
+cat <<EOF > credentials-velero
+[default]
+aws_access_key_id=minioadmin
+aws_secret_access_key=minioadmin123
+EOF
+
+
+Bước 3: Đưa Velero vào Kubernetes
+Đây là bước quan trọng nhất. Lệnh này sẽ tự động tải các Pod của Velero vào K8s và cấu hình để nó trỏ thẳng đến cổng 9000 của MinIO.
+
+(Lưu ý: Nếu ban nãy bạn chưa làm "Cách 2" để chuyển file config K3s cho user hieu, bạn có thể cần thêm sudo k3s ở đầu lệnh, nhưng cứ thử chạy lệnh gốc trước nhé).
+
+Bash
+velero install \
+    --provider aws \
+    --plugins velero/velero-plugin-for-aws:v1.9.0 \
+    --bucket velero-backups \
+    --secret-file ./credentials-velero \
+    --use-volume-snapshots=false \
+    --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio-service.default.svc.cluster.local:9000
+Sau khi chạy xong lệnh trên, Velero sẽ tạo một namespace riêng tên là velero và khởi động các Pod bên trong đó.
+
+--------------------------------------------------------------------------------------------
+1. Kiểm tra xem Velero đã sẵn sàng làm việc chưa
+sudo kubectl get pods -n velero
+
+2. Lệnh tạo bản backup thử nghiệm đầu tiên
+Hãy thử sao lưu namespace default (hoặc bạn có thể đổi thành hr để sao lưu thử ứng dụng HR của bạn):
+velero backup create test-backup-01 --include-namespaces default
+
+3. Xem tiến độ sao lưu
+velero backup get
+
+---------------------------------------------------------------------------------------------
+Theme vào kong gateway:
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: erp-platform-ingress
+  annotations:
+    konghq.com/strip-path: "true"
+spec:
+  ingressClassName: kong
+  rules:
+  - http:
+      paths:
+      - path: /hr
+        pathType: Prefix
+        backend:
+          service:
+            name: hr-service
+            port:
+              number: 80
+
+      - path: /organization
+        pathType: Prefix
+        backend:
+          service:
+            name: organization-service
+            port:
+              number: 80
+
+      - path: /workflow
+        pathType: Prefix
+        backend:
+          service:
+            name: workflow-service
+            port:
+              number: 80
+      - path: /ai
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-service
+            port:
+              number: 80
+      - path: /minio
+        pathType: Prefix
+        backend:
+          service:
+            name: minio-service
+            port:
+              number: 9001 # Trỏ đúng vào cổng 9001 (WebUI)

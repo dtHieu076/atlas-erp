@@ -1,0 +1,13 @@
+Bước 1: Build Image
+Mở terminal tại thư mục chứa Dockerfile này và chạy:
+
+docker build -t dthieudocker/wood-erp-platform:v1.0 .
+
+Bước 2: Kiểm tra Image vừa tạo
+docker images | Select-String "wood-erp-platform"
+
+Bước 3: Đăng nhập vào Docker Hub
+docker login
+
+Bước 4: Đẩy Image lên Docker Hub
+docker push dthieudocker/wood-erp-platform:v1.0

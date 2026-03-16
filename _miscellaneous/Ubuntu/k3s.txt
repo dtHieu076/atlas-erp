@@ -1,0 +1,19 @@
+K3s Setup Guide
+
+*Master node
+Step 1: Install K3s Server
+Run the following command on your Ubuntu Master Node:
+curl -sfL https://get.k3s.io | sh -
+This script automates the download and configuration of K3s as a system service.
+
+Step 2: Verify the Installation
+Check if your node is up and running:
+sudo kubectl get nodes
+
+Step 3: Retrieve the Node Token
+To join additional Worker Nodes to the cluster, you will need the token from the Master Node:
+sudo cat /var/lib/rancher/k3s/server/node-token
+
+
+*Worker node
+curl -sfL https://get.k3s.io | K3S_URL=https://192.168.74.129:6443 K3S_TOKEN=K1041b08fa3054eee318c71bccc9eae38d1a60cabad3cbb1554aed0ae187cc55372::server:7458942b8cb338148ce3b05212afa653 sh -

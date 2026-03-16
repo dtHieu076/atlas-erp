@@ -2,33 +2,19 @@
 OCR Routes - API endpoints for text extraction
 """
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from app.services.easyocr_service import EasyOCRService
-from app.models.response import OcrResponse
+from app.services import YoloService, VietOcrService
+from app.models.response import CccdResponse
 
 router = APIRouter()
 
-# Initialize OCR service (lazy loading)
-ocr_service: EasyOCRService = None
+# Global service instances (singleton via class)
+yolo_service = YoloService()
+vietocr_service = VietOcrService()
 
-
-def get_ocr_service() -> EasyOCRService:
-    """Get or initialize OCR service"""
-    global ocr_service
-    if ocr_service is None:
-        ocr_service = EasyOCRService(languages=['vi', 'en'], gpu=False)
-    return ocr_service
-
-
-@router.post("/extract-text", response_model=OcrResponse)
-async def extract_text(file: UploadFile = File(...)):
+@router.post("/extract-cccd", response_model=CccdResponse)
+async def extract_cccd(file: UploadFile = File(...)):
     """
-    Extract text from image using EasyOCR
-    
-    Args:
-        file: Image file (JPEG, PNG)
-        
-    Returns:
-        OcrResponse with extracted text and details
+    Extract CCCD information using YOLO detection + VietOCR recognition
     """
     try:
         # Validate file type
@@ -48,92 +34,58 @@ async def extract_text(file: UploadFile = File(...)):
                 detail="File too large. Maximum size is 10MB."
             )
         
-        # Get OCR service and extract text
-        service = get_ocr_service()
-        results = service.extract_text(image_bytes)
+        # YOLO detection and cropping (Tradu về Dict[str, List[Image]])
+        crops = yolo_service.detect_and_crop(image_bytes)
         
-        # Combine all text
-        full_text = " ".join([r["text"] for r in results])
+        # VietOCR recognition - MAPPING CHUẨN XÁC TỪ ROBOFLOW
+        field_mapping = {
+            'id': 'id_number',
+            'name': 'full_name',
+            'date_of_birth': 'dob',               # Sửa 'dob' thành 'date_of_birth'
+            'permanent_residence': 'address',
+            'hometown': 'hometown',               # Sửa 'home' thành 'hometown'
+            'nation': 'nationality',
+            'date_of_expiry': 'expiry_date',       # (Lưu ý: Hạn sử dụng đang gán vào Ngày cấp)
+            'gender': 'gender'                    # Bổ sung trường giới tính
+        }
         
-        return OcrResponse(
+        cccd_data = {k: "" for k in field_mapping.values()}
+        confidences = []
+        
+        # Lặp qua từng Class Name (VD: 'permanent_residence')
+        for class_name, list_of_images in crops.items():
+            mapped_field = field_mapping.get(class_name)
+            
+            if mapped_field:
+                extracted_texts = []
+                
+                # Vì list_of_images là 1 danh sách, ta phải lặp qua từng ảnh con
+                for img in list_of_images:
+                    text = vietocr_service.recognize_text(img)
+                    if text:
+                        extracted_texts.append(text)
+                
+                # Nối các dòng lại với nhau bằng dấu cách (VD: Nối 2 dòng địa chỉ)
+                final_text = " ".join(extracted_texts)
+                cccd_data[mapped_field] = final_text
+                
+                # Tính nhẩm độ tự tin
+                conf = min(1.0, len(final_text)/20.0) if final_text else 0.0
+                confidences.append(conf)
+        
+        avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
+        
+        return CccdResponse(
             success=True,
-            text=full_text,
-            results=results,
-            message=f"OCR completed successfully. Extracted {len(results)} text blocks."
+            **cccd_data,
+            confidence=round(avg_conf, 4),
+            message=f"Extracted CCCD from {len(crops)} detected fields: {list(crops.keys())}"
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
-
-
-@router.post("/extract-text-base64", response_model=OcrResponse)
-async def extract_text_base64(body: dict):
-    """
-    Extract text from base64 encoded image
-    
-    Args:
-        body: JSON with base64 encoded image
-        
-    Request body:
-        {
-            "image": "base64_encoded_image_string"
-        }
-        
-    Returns:
-        OcrResponse with extracted text and details
-    """
-    try:
-        import base64
-        
-        if "image" not in body:
-            raise HTTPException(status_code=400, detail="Missing 'image' field in request body")
-        
-        # Decode base64
-        image_data = body["image"]
-        
-        # Handle data URL format (e.g., "data:image/jpeg;base64,...")
-        if "," in image_data:
-            image_data = image_data.split(",")[1]
-        
-        try:
-            image_bytes = base64.b64decode(image_data)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid base64 encoding: {str(e)}")
-        
-        # Get OCR service and extract text
-        service = get_ocr_service()
-        results = service.extract_text(image_bytes)
-        
-        # Combine all text
-        full_text = " ".join([r["text"] for r in results])
-        
-        return OcrResponse(
-            success=True,
-            text=full_text,
-            results=results,
-            message=f"OCR completed successfully. Extracted {len(results)} text blocks."
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
-
-
-@router.get("/extract-text/available")
-async def check_available():
-    """
-    Check if OCR service is available and ready
-    """
-    try:
-        service = get_ocr_service()
-        return {
-            "available": service.is_ready(),
-            "languages": service.languages,
-            "gpu": service.gpu
-        }
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"OCR service not available: {str(e)}")
-
+        import traceback
+        import logging
+        logging.error(f"CCCD extraction failed: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"CCCD extraction failed: {str(e)}")
