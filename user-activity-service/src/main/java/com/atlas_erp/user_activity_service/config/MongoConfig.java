@@ -25,7 +25,7 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
     @Override
     @Bean
     public MongoClient mongoClient() {
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC")); // Chuẩn UTC cho Instant
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh")); // Vietnam timezone
         if (StringUtils.isNotBlank(connectionString)) {
             return MongoClients.create(connectionString);
         }
