@@ -32,7 +32,7 @@ public class JwtTokenServiceImpl implements JwtTokenService {
     }
 
     @Override
-    public String generateAccessToken(UUID userId, String email) {
+    public String generateAccessToken(UUID userId, String email, UUID sessionId) {
 
         Instant now = Instant.now();
 
@@ -42,13 +42,14 @@ public class JwtTokenServiceImpl implements JwtTokenService {
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(now.plusSeconds(accessTokenExpiration)))
                 .claim("email", email)
+                .claim("sessionId", sessionId.toString())
                 .claim("type", "ACCESS")
                 .signWith(signingKey, SignatureAlgorithm.HS256)
                 .compact();
     }
 
     @Override
-    public String generateRefreshToken(UUID userId) {
+    public String generateRefreshToken(UUID userId, UUID sessionId) {
 
         Instant now = Instant.now();
 
@@ -57,6 +58,7 @@ public class JwtTokenServiceImpl implements JwtTokenService {
                 .setIssuer(issuer)
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(now.plusSeconds(refreshTokenExpiration)))
+                .claim("sessionId", sessionId.toString())
                 .claim("type", "REFRESH")
                 .signWith(signingKey, SignatureAlgorithm.HS256)
                 .compact();
@@ -103,10 +105,28 @@ public class JwtTokenServiceImpl implements JwtTokenService {
                     .getBody()
                     .getSubject();
 
-            return UUID.fromString(subject);
+            UUID userId = UUID.fromString(subject);
 
+            // Backward compatibility - old refresh tokens without sessionId
+            return userId;
         } catch (Exception ex) {
             throw new IllegalStateException("Invalid refresh token", ex);
+        }
+    }
+
+    @Override
+    public UUID getSessionIdFromToken(String token) {
+        try {
+            String sessionIdStr = Jwts.parserBuilder()
+                    .setSigningKey(signingKey)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody()
+                    .get("sessionId", String.class);
+
+            return sessionIdStr != null ? UUID.fromString(sessionIdStr) : null;
+        } catch (Exception ex) {
+            return null;
         }
     }
 

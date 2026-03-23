@@ -1,17 +1,17 @@
 package com.atlas_erp.iam_service.Repository;
 
+import com.atlas_erp.iam_service.Entity.UserIdentityEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import java.util.UUID;
-import com.atlas_erp.iam_service.Entity.UserIdentityEntity;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface UserIdentityRepository extends JpaRepository<UserIdentityEntity, UUID> {
 
-    Optional<UserIdentityEntity> findByProviderAndProviderUid(
-            String provider,
-            String providerUid);
+    // Đổi từ findByProviderAndProviderUid thành:
+    Optional<UserIdentityEntity> findByGoogleId(String googleId);
 
-    Optional<UserIdentityEntity> findByUserId(UUID userId);
+    // Nếu bạn cần tìm theo email:
+    Optional<UserIdentityEntity> findByEmail(String email);
 }

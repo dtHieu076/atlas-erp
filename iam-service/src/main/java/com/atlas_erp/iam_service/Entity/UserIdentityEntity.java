@@ -23,21 +23,13 @@ public class UserIdentityEntity {
     @Column(nullable = false)
     private UUID userId;
 
-    @Enumerated(EnumType.STRING)
-    private AuthProvider provider; // LOCAL | GOOGLE | AZURE
-
-    @Column(nullable = false)
-    private String providerUid;
+    // Đã xóa AuthProvider vì chỉ dùng Google
+    @Column(nullable = false, unique = true)
+    private String googleId; // Thay thế cho providerUid
 
     @Column(nullable = false)
     private String email;
 
     private String lockReason;
     private Instant lockedAt;
-
-    public enum AuthProvider {
-        LOCAL,
-        GOOGLE,
-        AZURE
-    }
 }

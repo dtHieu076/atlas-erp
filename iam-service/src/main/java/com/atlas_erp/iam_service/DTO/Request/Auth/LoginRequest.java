@@ -2,22 +2,13 @@ package com.atlas_erp.iam_service.Dto.Request.Auth;
 
 import lombok.Data;
 
+/**
+ * Google ID Token from client SDK
+ */
 @Data
 public class LoginRequest {
     /**
-     * Identity provider
-     * VD: GOOGLE
+     * Google ID Token (credential) from Google SDK
      */
-    private String provider;
-
-    /**
-     * Unique user id from provider
-     * VD: Google sub / user id
-     */
-    private String providerUid;
-
-    /**
-     * Email từ provider (metadata)
-     */
-    private String email;
+    private String credential;
 }

@@ -14,8 +14,8 @@ public class UserIdentityCacheService {
     private static final Duration TTL = Duration.ofMinutes(30);
     private final RedisTemplate<String, Object> redisTemplate;
 
-    private String key(String provider, String providerUid) {
-        return "iam:identity:" + provider + ":" + providerUid;
+    private String key(String googleId) {
+        return "iam:identity:google:" + googleId;
     }
 
     private String keyByUserId(UUID userId) {
@@ -24,10 +24,18 @@ public class UserIdentityCacheService {
 
     // ========== GET ==========
 
+    /**
+     * @deprecated Use get(String googleId)
+     */
+    @Deprecated
     public CachedUserIdentity get(String provider, String providerUid) {
+        return get(providerUid); // Assume providerUid is googleId
+    }
+
+    public CachedUserIdentity get(String googleId) {
         return (CachedUserIdentity) redisTemplate
                 .opsForValue()
-                .get(key(provider, providerUid));
+                .get(key(googleId));
     }
 
     public CachedUserIdentity getByUserId(UUID userId) {
@@ -36,17 +44,16 @@ public class UserIdentityCacheService {
                 .get(keyByUserId(userId));
     }
 
-    // ========== PUT (single source of truth) ==========
+    // ========== PUT ==========
 
     public void put(CachedUserIdentity identity) {
-
-        // by provider + providerUid
+        // by googleId (primary key)
         redisTemplate.opsForValue().set(
-                key(identity.getProvider(), identity.getProviderUid()),
+                key(identity.getGoogleId()),
                 identity,
                 TTL);
 
-        // by userId (for refresh token flow)
+        // by userId (for refresh flow)
         redisTemplate.opsForValue().set(
                 keyByUserId(identity.getUserId()),
                 identity,
@@ -56,8 +63,20 @@ public class UserIdentityCacheService {
     // ========== EVICT ==========
 
     public void evict(CachedUserIdentity identity) {
-        redisTemplate.delete(key(identity.getProvider(), identity.getProviderUid()));
+        redisTemplate.delete(key(identity.getGoogleId()));
         redisTemplate.delete(keyByUserId(identity.getUserId()));
+    }
+
+    /**
+     * @deprecated Use evict(CachedUserIdentity)
+     */
+    @Deprecated
+    public void evict(String provider, String providerUid) {
+        evict(providerUid); // Assume providerUid is googleId
+    }
+
+    public void evict(String googleId) {
+        redisTemplate.delete(key(googleId));
     }
 
     public void evictByUserId(UUID userId) {

@@ -11,4 +11,8 @@ public class LoginResponse {
     private String userId;
     private String username;
     private String status;
+
+    // Added per feedback
+    private String roleId;
+    private String roleName;
 }
