@@ -1,5 +1,7 @@
 package com.atlas_erp.ai_service.Controller;
 
+import com.atlas_erp.ai_service.Dto.Request.IdCardBase64Request;
+import com.atlas_erp.ai_service.Dto.Request.IdCardLlmRequest;
 import com.atlas_erp.ai_service.Dto.Request.IdCardRequest;
 import com.atlas_erp.ai_service.Dto.Response.ApiResponse;
 import com.atlas_erp.ai_service.Dto.Response.IdCardResponse;
@@ -10,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Base64;
 import java.util.Map;
 
 /**
@@ -72,6 +75,48 @@ public class IdCardController {
     }
 
     /**
+     * Experimental: LLM Vision direct - chỉ 1 ảnh mặt trước (MultipartFile)
+     * Internal: MultipartFile → base64 → Vision LLM → YOLO fields
+     */
+    @PostMapping("/id-card-llm")
+    public ResponseEntity<ApiResponse<IdCardResponse>> processIdCardLlm(
+            @RequestParam("frontImage") MultipartFile frontImage) {
+
+        log.info("Received LLM Vision request - front: {}", frontImage.getOriginalFilename());
+
+        if (!isValidImage(frontImage)) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Ảnh mặt trước phải là jpg/png/jpeg"));
+        }
+
+        try {
+            // Convert MultipartFile to base64 data URL
+            String contentType = frontImage.getContentType();
+            byte[] imageBytes = frontImage.getBytes();
+            String base64Data = java.util.Base64.getEncoder().encodeToString(imageBytes);
+            String imageBase64 = "data:" + contentType + ";base64," + base64Data;
+
+            IdCardLlmRequest request = IdCardLlmRequest.builder()
+                    .frontImage(frontImage)
+                    .imageBase64(imageBase64)
+                    .build();
+
+            IdCardResponse response = idCardService.processIdCardLlm(request);
+
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(ApiResponse.success(response, "LLM Vision (mặt trước) thành công"));
+            } else {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error(response.getMessage()));
+            }
+        } catch (Exception e) {
+            log.error("LLM Vision error: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Lỗi LLM Vision: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Health check endpoint for OCR service
      */
     @GetMapping("/health")
@@ -79,7 +124,7 @@ public class IdCardController {
         Map<String, Object> healthData = Map.of(
                 "status", "UP",
                 "service", "ai-service-ocr",
-                "features", "ID Card OCR, Image Preprocessing, Regex Parsing, LLM Formatting");
+                "features", "ID Card OCR, Image Preprocessing, Regex Parsing, LLM Formatting, Vision LLM Direct");
 
         return ResponseEntity.ok(ApiResponse.success(healthData, "Health check completed"));
     }

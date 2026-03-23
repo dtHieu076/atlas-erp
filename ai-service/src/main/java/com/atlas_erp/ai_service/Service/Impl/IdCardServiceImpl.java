@@ -1,5 +1,7 @@
 package com.atlas_erp.ai_service.Service.Impl;
 
+import com.atlas_erp.ai_service.Dto.Request.IdCardBase64Request;
+import com.atlas_erp.ai_service.Dto.Request.IdCardLlmRequest;
 import com.atlas_erp.ai_service.Dto.Request.IdCardRequest;
 import com.atlas_erp.ai_service.Dto.Response.IdCardData;
 import com.atlas_erp.ai_service.Dto.Response.IdCardResponse;
@@ -14,7 +16,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-
 import java.util.*;
 
 /**
@@ -38,6 +39,9 @@ public class IdCardServiceImpl implements IdCardService {
 
     @Value("${spring.ai.openai.api-key:}")
     private String apiKey;
+
+    @Value("${ai-service.vision.llm.model:qwen/qwen-2.5-vl-3b-instruct:free}")
+    private String visionModel;
 
     private final WebClient webClient = WebClient.builder()
             .baseUrl(baseUrl)
@@ -358,5 +362,117 @@ public class IdCardServiceImpl implements IdCardService {
      */
     private String nullToEmpty(String value) {
         return value != null ? value : "";
+    }
+
+    @Override
+    public IdCardResponse processIdCardLlm(IdCardLlmRequest request) {
+        log.info("Starting direct LLM vision processing for ID card base64 image");
+
+        try {
+            String imageBase64 = request.getImageBase64();
+            if (imageBase64 == null || imageBase64.isEmpty() || !imageBase64.startsWith("data:image/")) {
+                return IdCardResponse.builder()
+                        .success(false)
+                        .message("Invalid base64 image data. Must be data URL format: data:image/...;base64,...")
+                        .build();
+            }
+
+            List<Map<String, Object>> messages = new ArrayList<>();
+
+            // System message - instruct vision LLM to extract ID info from image and return
+            // JSON
+            Map<String, Object> systemMsg = new HashMap<>();
+            systemMsg.put("role", "system");
+            systemMsg.put("content",
+                    "Bạn là AI chuyên trích xuất thông tin căn cước công dân Việt Nam (CCCD) trực tiếp từ ảnh. " +
+                            "Nhiệm vụ: " +
+                            "1. Quan sát kỹ ảnh CCCD " +
+                            "2. Trích xuất chính xác các trường: họ tên, ngày sinh, giới tính, số CCCD, quê quán, địa chỉ, ngày cấp, nơi cấp, dân tộc, tôn giáo "
+                            +
+                            "3. Chuẩn hóa dữ liệu (sửa lỗi OCR tự động, format tên đúng VN) " +
+                            "4. Tạo formattedText: 'Thông tin của nhân viên như sau: [họ tên], sinh ngày [ngày], giới tính [Nam/Nữ], CCCD [số], quê [quê quán], thường trú [địa chỉ].' "
+                            +
+                            "5. TRẢ VỀ CHỈ JSON, KHÔNG giải thích: " +
+                            "{\"fullName\":\"\",\"dateOfBirth\":\"\",\"gender\":\"Nam/Nữ\",\"idNumber\":\"\",\"placeOfOrigin\":\"\",\"address\":\"\",\"issueDate\":\"\",\"issuePlace\":\"\",\"ethnicity\":\"\",\"religion\":\"\",\"formattedText\":\"\"}");
+            messages.add(systemMsg);
+
+            // User message with image
+            Map<String, Object> userMsg = new HashMap<>();
+            userMsg.put("role", "user");
+            List<Map<String, Object>> contentArray = new ArrayList<>();
+
+            // Text instruction
+            Map<String, Object> textContent = new HashMap<>();
+            textContent.put("type", "text");
+            textContent.put("text", "Trích xuất đầy đủ thông tin CCCD từ ảnh này. Quan sát kỹ tất cả các trường.");
+            contentArray.add(textContent);
+
+            // Image content
+            Map<String, Object> imageContent = new HashMap<>();
+            imageContent.put("type", "image_url");
+            Map<String, Object> imageUrl = new HashMap<>();
+            imageUrl.put("url", imageBase64);
+            imageContent.put("image_url", imageUrl);
+            contentArray.add(imageContent);
+
+            userMsg.put("content", contentArray);
+            messages.add(userMsg);
+
+            // Build request
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", visionModel);
+            requestBody.put("messages", messages);
+            requestBody.put("temperature", 0.1);
+
+            // Send request to OpenRouter
+            String response = webClient.post()
+                    .uri("/v1/chat/completions")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            // Parse response (same as parseWithLLMFromRawOcr)
+            JsonNode jsonResponseNode = objectMapper.readTree(response);
+            String content = jsonResponseNode.get("choices").get(0).get("message").get("content").asText();
+
+            log.debug("Vision LLM raw response: {}", content);
+
+            // Clean and parse JSON
+            String jsonStr = cleanJsonResponse(content);
+            JsonNode dataNode = objectMapper.readTree(jsonStr);
+
+            // Map to IdCardData
+            IdCardData data = IdCardData.builder()
+                    .fullName(getTextOrNull(dataNode, "fullName"))
+                    .dateOfBirth(getTextOrNull(dataNode, "dateOfBirth"))
+                    .gender(getTextOrNull(dataNode, "gender"))
+                    .idNumber(getTextOrNull(dataNode, "idNumber"))
+                    .placeOfOrigin(getTextOrNull(dataNode, "placeOfOrigin"))
+                    .hometown(getTextOrNull(dataNode, "placeOfOrigin"))
+                    .address(getTextOrNull(dataNode, "address"))
+                    .permanentAddress(getTextOrNull(dataNode, "address"))
+                    .issueDate(getTextOrNull(dataNode, "issueDate"))
+                    .issuePlace(getTextOrNull(dataNode, "issuePlace"))
+                    .ethnicity(getTextOrNull(dataNode, "ethnicity"))
+                    .religion(getTextOrNull(dataNode, "religion"))
+                    .formattedText(getTextOrNull(dataNode, "formattedText"))
+                    .build();
+
+            log.info("Vision LLM extracted ID card data: {}", data);
+
+            return IdCardResponse.builder()
+                    .success(true)
+                    .message("Xử lý trực tiếp bằng Vision LLM thành công")
+                    .data(data)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Error in direct LLM vision processing: {}", e.getMessage(), e);
+            return IdCardResponse.builder()
+                    .success(false)
+                    .message("Lỗi xử lý Vision LLM: " + e.getMessage())
+                    .build();
+        }
     }
 }

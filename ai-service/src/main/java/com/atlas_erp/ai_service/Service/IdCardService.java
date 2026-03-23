@@ -1,5 +1,6 @@
 package com.atlas_erp.ai_service.Service;
 
+import com.atlas_erp.ai_service.Dto.Request.IdCardLlmRequest;
 import com.atlas_erp.ai_service.Dto.Request.IdCardRequest;
 import com.atlas_erp.ai_service.Dto.Response.IdCardData;
 import com.atlas_erp.ai_service.Dto.Response.IdCardResponse;
@@ -25,4 +26,13 @@ public interface IdCardService {
      * @return Formatted text sentence
      */
     String generateFormattedText(IdCardData data);
+
+    /**
+     * Experimental: Process front ID card image directly with vision LLM
+     * Convert MultipartFile to base64 → send to LLM vision model
+     *
+     * @param request Front image only
+     * @return IdCardResponse with LLM extracted fields matching YOLO classes
+     */
+    IdCardResponse processIdCardLlm(IdCardLlmRequest request);
 }
