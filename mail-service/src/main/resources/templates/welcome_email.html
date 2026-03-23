@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome to Atlas ERP</title>
+</head>
+
+<body>
+    <div th:if="${holidayName}">
+        <h1>Happy <span th:text="${holidayName}"></span>!</h1>
+        <p>Dear <span th:text="${userName} ?: 'colleague'"></span>,</p>
+        <p>The date is <span th:text="${date}"></span>.</p>
+        <p>Best regards,<br />Atlas ERP Team</p>
+    </div>
+    <div th:unless="${holidayName}">
+        <h1>Welcome to Atlas ERP!</h1>
+        <p>Thank you for joining our platform.</p>
+    </div>
+</body>
+
+</html>
