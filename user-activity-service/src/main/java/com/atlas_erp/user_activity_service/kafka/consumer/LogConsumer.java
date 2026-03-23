@@ -3,7 +3,7 @@ package com.atlas_erp.user_activity_service.kafka.consumer;
 import com.atlas_erp.user_activity_service.document.UserActivity;
 import com.atlas_erp.user_activity_service.dto.ActivityLogRequest;
 import com.atlas_erp.user_activity_service.repository.UserActivityRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+// Xóa import ObjectMapper
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -14,18 +14,17 @@ import java.util.Map;
 public class LogConsumer {
 
     private final UserActivityRepository repository;
-    private final ObjectMapper objectMapper;
+    // Bỏ ObjectMapper đi vì Kafka đã tự parse JSON sang Object rồi
 
-    public LogConsumer(UserActivityRepository repository, ObjectMapper objectMapper) {
+    public LogConsumer(UserActivityRepository repository) {
         this.repository = repository;
-        this.objectMapper = objectMapper;
     }
 
     @KafkaListener(topics = "${app.kafka.topic.user-activity-log}", groupId = "user-activity-consumer")
-    public void consumeLog(String jsonMessage) {
+    // Nhận trực tiếp Object (ActivityLogRequest) thay vì String (jsonMessage)
+    public void consumeLog(ActivityLogRequest request) {
         try {
-            // Parse JSON từ Kafka về DTO
-            ActivityLogRequest request = objectMapper.readValue(jsonMessage, ActivityLogRequest.class);
+            // Không cần parse thủ công nữa
 
             // Map sang Document và làm giàu
             UserActivity activity = new UserActivity();
@@ -47,10 +46,7 @@ public class LogConsumer {
             repository.save(activity);
 
         } catch (Exception e) {
-            // Xử lý lỗi parse JSON
             e.printStackTrace();
         }
     }
-    // Comment: Consumer lắng nghe topic, parse JSON -> UserActivity, set server
-    // time, lưu DB. Retry nếu fail.
 }
