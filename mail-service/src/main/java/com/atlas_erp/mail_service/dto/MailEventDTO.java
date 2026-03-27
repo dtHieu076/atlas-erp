@@ -25,6 +25,8 @@ public class MailEventDTO {
 
     private List<String> tags;
 
+    private String sendType = "INDIVIDUAL"; // "ALL", "TEAM", "INDIVIDUAL"
+
     // Inner class for recipients
     @Data
     public static class Recipient {

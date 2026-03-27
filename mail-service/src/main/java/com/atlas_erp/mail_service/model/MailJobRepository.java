@@ -7,7 +7,10 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.atlas_erp.mail_service.model.MailJob.MailJobStatus;
+
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Repository for MailJob CRUD and custom queries for queue operations.
@@ -26,4 +29,11 @@ public interface MailJobRepository extends JpaRepository<MailJob, Long> {
     int updateStatusWithRetry(@Param("id") Long id,
             @Param("status") MailJob.MailJobStatus status,
             @Param("error") String error);
+
+    // Campaign queries
+    @Query("SELECT COUNT(j) FROM MailJob j WHERE j.campaign.id = :campaignId AND j.status = :status")
+    long countByCampaignAndStatus(@Param("campaignId") UUID campaignId, @Param("status") MailJobStatus status);
+
+    @Query("SELECT COUNT(j) FROM MailJob j WHERE j.status = :status")
+    long countByStatus(@Param("status") MailJobStatus status);
 }

@@ -41,6 +41,10 @@ public class MailJob {
 
     private String errorMessage;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "campaign_id")
+    private MailCampaign campaign;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import com.atlas_erp.mail_service.model.MailCampaign;
+import com.atlas_erp.mail_service.service.CampaignService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Queue service for enqueue/dequeue MailJobs from DB.
@@ -17,6 +20,7 @@ import java.util.List;
 public class MailJobQueue {
 
     private final MailJobRepository mailJobRepository;
+    private final CampaignService campaignService;
 
     @Value("${app.mail.batch-size:100}")
     private int batchSize;
@@ -25,14 +29,20 @@ public class MailJobQueue {
      * Enqueue MailEventDTO - create individual MailJob for each recipient.
      */
     public void enqueue(MailEventDTO event) {
+        // Create campaign
+        MailCampaign campaign = campaignService.createCampaign(
+                event.getTemplateId(),
+                event.getSendType(),
+                event.getRecipients().size());
+
+        ObjectMapper mapper = new ObjectMapper();
         event.getRecipients().forEach(recipient -> {
             MailJob job = new MailJob();
             job.setRecipientEmail(recipient.getEmail());
             job.setTemplateId(event.getTemplateId());
             try {
                 if (event.getTemplateData() != null) {
-                    job.setTemplateData(new com.fasterxml.jackson.databind.ObjectMapper()
-                            .writeValueAsString(event.getTemplateData()));
+                    job.setTemplateData(mapper.writeValueAsString(event.getTemplateData()));
                 } else {
                     job.setTemplateData("{}");
                 }
@@ -40,6 +50,7 @@ public class MailJobQueue {
                 job.setTemplateData("{}");
             }
             job.setStatus(MailJob.MailJobStatus.PENDING);
+            job.setCampaign(campaign);
             mailJobRepository.save(job);
         });
     }
