@@ -34,6 +34,7 @@ public class LogConsumer {
             activity.setPage(request.getPage());
             activity.setClientTimestamp(request.getClientTimestamp());
             activity.setMetadata((Map<String, Object>) request.getMetadata());
+            activity.setUserName(request.getUserName());
 
             // Thêm serverTimestamp
             activity.setServerTimestamp(Instant.now());
