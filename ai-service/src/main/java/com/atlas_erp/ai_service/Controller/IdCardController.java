@@ -1,6 +1,5 @@
 package com.atlas_erp.ai_service.Controller;
 
-import com.atlas_erp.ai_service.Dto.Request.IdCardBase64Request;
 import com.atlas_erp.ai_service.Dto.Request.IdCardLlmRequest;
 import com.atlas_erp.ai_service.Dto.Request.IdCardRequest;
 import com.atlas_erp.ai_service.Dto.Response.ApiResponse;
@@ -12,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Base64;
 import java.util.Map;
 
 /**
