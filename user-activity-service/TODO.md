@@ -1,10 +1,10 @@
-# Task: Add userName field to 2 APIs (POST /logs and GET /logs)
+# Dockerfile Implementation Plan for user-activity-service
 
-## Steps:
-1. [x] Add `private String userName;` to ActivityLogRequest.java
-2. [x] Add `private String userName;` to UserActivity.java (with @Indexed)
-3. [x] Update LogConsumer.java: add `activity.setUserName(request.getUserName());`
-4. [x] Skipped optional query filter
-5. [x] mvn clean compile
-6. [x] Tested: Compilation success, changes ready for POST input & GET response with userName field.
-7. [x] Complete task
+## Steps to Complete:
+- [x] 1. Create Dockerfile with multi-stage Maven build (Java 17, Spring Boot fat JAR, include certs/)
+- [ ] 2. Build the Docker image: `docker build -t user-activity-service .`
+- [ ] 3. Run the container with external MongoDB/Kafka env vars: `docker run -p 8080:8080 ...`
+- [ ] 4. Test health endpoint: `curl http://localhost:8080/actuator/health`
+- [ ] 5. Optional: Create .dockerignore and docker-compose.yml
+
+**Status:** Dockerfile created. Proceed to build and test.
