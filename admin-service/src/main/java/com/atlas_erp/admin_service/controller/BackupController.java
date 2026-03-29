@@ -3,6 +3,7 @@ package com.atlas_erp.admin_service.controller;
 import com.atlas_erp.admin_service.dto.BackupRequestDto;
 import com.atlas_erp.admin_service.dto.BackupResponseDto;
 import com.atlas_erp.admin_service.service.VeleroBackupService;
+import com.atlas_erp.admin_service.dto.VeleroBackupItemDto;
 import com.atlas_erp.admin_service.event.BackupKafkaService;
 
 import org.springframework.http.ResponseEntity;
@@ -41,5 +42,27 @@ public class BackupController {
     public ResponseEntity<List<BackupResponseDto>> getAllBackups() {
         List<BackupResponseDto> backups = veleroBackupService.getAllBackups();
         return ResponseEntity.ok(backups);
+    }
+
+    @GetMapping("/velero-realtime")
+    public ResponseEntity<List<VeleroBackupItemDto>> getRealTimeVeleroBackups() {
+        List<VeleroBackupItemDto> backups = veleroBackupService.getRealTimeVeleroBackups();
+        return ResponseEntity.ok(backups);
+    }
+
+    @GetMapping("/velero-realtime/{name}")
+    public ResponseEntity<VeleroBackupItemDto> getVeleroBackupDetail(@PathVariable String name) {
+        VeleroBackupItemDto detail = veleroBackupService.getVeleroBackupDetail(name);
+        return ResponseEntity.ok(detail);
+    }
+
+    @DeleteMapping("/velero-realtime/{name}")
+    public ResponseEntity<String> deleteVeleroBackup(@PathVariable String name) {
+        boolean deleted = veleroBackupService.deleteVeleroBackup(name);
+        if (deleted) {
+            return ResponseEntity.ok("Velero backup '" + name + "' deleted successfully");
+        } else {
+            return ResponseEntity.ok("Velero backup '" + name + "' not found or already deleted");
+        }
     }
 }

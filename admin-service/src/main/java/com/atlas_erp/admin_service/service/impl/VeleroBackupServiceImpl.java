@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 
 import com.atlas_erp.admin_service.dto.BackupResponseDto;
 import com.atlas_erp.admin_service.dto.VeleroBackup;
+import com.atlas_erp.admin_service.dto.VeleroBackupItemDto;
 import com.atlas_erp.admin_service.dto.VeleroBackupSpec;
+import com.atlas_erp.admin_service.dto.VeleroBackupStatus;
 import com.atlas_erp.admin_service.entity.BackupJob;
 import com.atlas_erp.admin_service.enums.BackupStatus;
 import com.atlas_erp.admin_service.repository.BackupJobRepository;
@@ -14,8 +16,6 @@ import com.atlas_erp.admin_service.event.BackupKafkaService;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
-import io.fabric8.kubernetes.client.KubernetesClientException;
-
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,14 +23,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.HashSet;
 
 @Service
 @Slf4j
@@ -174,6 +172,66 @@ public class VeleroBackupServiceImpl implements VeleroBackupService {
                 job.getTargetNamespace(),
                 job.getStatus(),
                 job.getCreatedAt());
+    }
+
+    @Override
+    public java.util.List<VeleroBackupItemDto> getRealTimeVeleroBackups() {
+        try {
+            return client.resources(VeleroBackup.class)
+                    .inNamespace("velero")
+                    .list()
+                    .getItems()
+                    .stream()
+                    .map(this::mapToVeleroItemDto)
+                    .toList();
+        } catch (Exception e) {
+            log.error("Error fetching real-time Velero backups: {}", e.getMessage(), e);
+            return java.util.List.of();
+        }
+    }
+
+    @Override
+    public VeleroBackupItemDto getVeleroBackupDetail(String name) {
+        try {
+            VeleroBackup backup = client.resources(VeleroBackup.class)
+                    .inNamespace("velero")
+                    .withName(name)
+                    .get();
+            if (backup == null) {
+                throw new RuntimeException("Velero backup not found: " + name);
+            }
+            return mapToVeleroItemDto(backup);
+        } catch (Exception e) {
+            log.error("Error fetching Velero backup {}: {}", name, e.getMessage(), e);
+            throw new RuntimeException("Velero backup not found or error: " + name, e);
+        }
+    }
+
+    @Override
+    public boolean deleteVeleroBackup(String name) {
+        try {
+            // Lấy danh sách kết quả trả về từ lệnh delete thay vì Boolean
+            var deleteStatuses = client.resources(VeleroBackup.class)
+                    .inNamespace("velero")
+                    .withName(name)
+                    .delete();
+
+            // Nếu K8s trả về list không rỗng tức là lệnh xóa đã được tiếp nhận thành công
+            return deleteStatuses != null && !deleteStatuses.isEmpty();
+        } catch (Exception e) {
+            log.error("Error deleting Velero backup {}: {}", name, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    private VeleroBackupItemDto mapToVeleroItemDto(VeleroBackup backup) {
+        VeleroBackupStatus status = backup.getStatus();
+        return new VeleroBackupItemDto(
+                backup.getMetadata().getName(),
+                status != null ? status.getPhase() : null,
+                status != null ? status.getStartTimestamp() : null,
+                status != null ? status.getCompletionTimestamp() : null,
+                status != null ? status.getExpiration() : null);
     }
 
     @PreDestroy

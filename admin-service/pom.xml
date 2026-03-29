@@ -77,10 +77,17 @@
 		    <artifactId>lombok</artifactId>
 		    <optional>true</optional>
 		</dependency>
+
 		<dependency>
 		    <groupId>org.postgresql</groupId>
 		    <artifactId>postgresql</artifactId>
 		    <scope>runtime</scope>
+		</dependency>
+
+		<dependency>
+		    <groupId>org.bouncycastle</groupId>
+		    <artifactId>bcpkix-jdk18on</artifactId>
+		    <version>1.77</version>
 		</dependency>
 	</dependencies>
 

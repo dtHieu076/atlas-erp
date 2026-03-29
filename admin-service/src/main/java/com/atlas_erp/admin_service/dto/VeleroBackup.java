@@ -10,7 +10,7 @@ import io.fabric8.kubernetes.model.annotation.Version;
 @Group(value = "velero.io")
 @Version(value = "v1")
 @Plural("backups")
-public class VeleroBackup extends CustomResource<VeleroBackupSpec, Void> implements Namespaced {
+public class VeleroBackup extends CustomResource<VeleroBackupSpec, VeleroBackupStatus> implements Namespaced {
 
     // CHÚ Ý: Ghi đè phương thức getKind() để ép nó trả về chữ "Backup"
     @Override

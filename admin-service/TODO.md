@@ -1,18 +1,1 @@
-# BackupKafkaService Refactor - ✅ COMPLETE
-
-**Move + Clean Architecture**:
-- ✅ File moved to event/
-- ✅ Imports updated
-- ✅ @KafkaListener handleBackupStatus moved to BackupKafkaService (with requiredServices @Value)
-- ✅ Removed from VeleroBackupServiceImpl (simplified ctor, no Kafka deps)
-- ✅ mvn clean compile BUILD SUCCESS (twice verified)
-
-**Results**:
-- Clean separation: Event layer handles Kafka listeners/parsing/status logging/checks.
-- Service layer: Pure Velero/K8s backup logic.
-- Logic unchanged, just reorganized.
-
-**Test**: cd admin-service && mvn spring-boot:run
-Send backup command, check erp-backup-status topic logs.
-
-See REFATOR_LOG.md for summary.
+# Velero Backup Management Implementation Steps&#10;&#10;## Plan Breakdown&#10;1. [x] Create TODO.md with steps&#10;2. [ ] Update VeleroBackupService interface with new methods&#10;3. [ ] Implement methods in VeleroBackupServiceImpl&#10;4. [ ] Add endpoints to BackupController&#10;5. [ ] Mark complete and attempt_completion&#10;
