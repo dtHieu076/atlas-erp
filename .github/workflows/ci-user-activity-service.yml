@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-    # Chỉ chạy kịch bản này khi có code thay đổi trong thư mục user-activity-service
+    # Chỉ kích hoạt CI khi có thay đổi trong code của user-activity-service
     paths:
       - 'user-activity-service/**'
 
@@ -13,19 +13,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Bước 1 - Kéo mã nguồn về máy ảo
+      - name: 📥 Bước 1 - Kéo mã nguồn
         uses: actions/checkout@v4
 
       - name: 🐳 Bước 2 - Thiết lập Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🔐 Bước 3 - Đăng nhập vào Docker Hub
+      - name: 🔐 Bước 3 - Đăng nhập Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: 🚀 Bước 4 - Build và Push Docker Image
+      - name: 🚀 Bước 4 - Build & Push Docker Image cho User Activity Service
         uses: docker/build-push-action@v5
         with:
           context: ./user-activity-service
@@ -33,20 +33,22 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:${{ github.sha }}
 
-      - name: 🔄 Bước 5 - Cập nhật tag mới vào Config Repo (ArgoCD)
+      - name: 🔄 Bước 5 - Cập nhật tag vào Config Repo (ArgoCD)
         run: |
-          # 1. Clone repo chứa cấu hình K8s
+          # 1. Clone repo cấu hình (atlas-erp-config-k8s)
           git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/dtHieu076/atlas-erp-config-k8s.git
           cd atlas-erp-config-k8s
 
-          # 2. Cấu hình danh tính Bot để commit code
+          # 2. Định danh cho con Bot
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
 
-          # 3. Tìm và cập nhật mã tag image mới vào file deployment (Đã sửa lại tên file bị sai chính tả)
-          sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:${{ github.sha }}|g" 2-apps/user-activity-k8s/user-activity-deloyment.yaml
+          # 3. Tìm và đổi tag image trong file user-activity-deployment.yaml
+          # Lưu ý: Cấu trúc thư mục này được ngoại suy từ mẫu mail-service. 
+          # Hãy sửa lại đoạn "2-apps/user-activity-k8s/..." bên dưới nếu cấu trúc thực tế của bạn khác.
+          sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:${{ github.sha }}|g" 2-apps/user-activity-k8s/user-activity-deployment.yaml
 
-          # 4. Lưu và Push sự thay đổi lên nhánh main của Config Repo (Đã sửa lại tên file)
-          git add 2-apps/user-activity-k8s/user-activity-deloyment.yaml
+          # 4. Commit và đẩy cấu hình mới lên GitHub
+          git add 2-apps/user-activity-k8s/user-activity-deployment.yaml
           git commit -m "CD: Tự động cập nhật user-activity-service image tag thành ${{ github.sha }}"
           git push
