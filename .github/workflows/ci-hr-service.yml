@@ -1,0 +1,53 @@
+name: CI - Build & Push HR Service
+
+on:
+  push:
+    branches:
+      - main
+    # Chỉ chạy kịch bản này khi có thay đổi trong thư mục hr-service của Source Repo
+    paths:
+      - 'hr-service/**'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Bước 1 - Kéo mã nguồn về máy ảo
+        uses: actions/checkout@v4
+
+      - name: 🐳 Bước 2 - Thiết lập Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Bước 3 - Đăng nhập vào Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🚀 Bước 4 - Build và Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./hr-service
+          file: ./hr-service/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/hr-service:${{ github.sha }}
+
+      - name: 🔄 Bước 5 - Cập nhật tag mới vào Config Repo (Dành cho ArgoCD)
+        run: |
+          # 1. Clone đúng repo chứa cấu hình (atlas-erp-config-k8s)
+          # LƯU Ý: Hãy thay "Tên_Của_Bạn" bằng username GitHub của bạn
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/dtHieu076/atlas-erp-config-k8s.git
+          cd atlas-erp-config-k8s
+
+          # 2. Đóng giả làm Bot để commit code
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+          # 3. Tìm và đổi tag image trong đúng file hr-deployment.yaml
+          sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/hr-service:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/hr-service:${{ github.sha }}|g" 2-apps/hr-k8s/hr-deployment.yaml
+
+          # 4. Lưu thay đổi và Push ngược lên GitHub
+          git add 2-apps/hr-k8s/hr-deployment.yaml
+          git commit -m "CD: Tự động cập nhật hr-service image tag thành ${{ github.sha }}"
+          git push
