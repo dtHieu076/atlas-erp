@@ -17,7 +17,8 @@ public class CorsConfig {
         // Chú ý: Dùng AllowedOrigins thay vì Patterns để dễ nhận diện hơn với localhost
         configuration.setAllowedOrigins(List.of("http://localhost:3000",
                 "https://login-chi-dusky.vercel.app",
-                "https://hrfrontendv1.netlify.app"));
+                "https://hrfrontendv1.netlify.app",
+                "https://adminfrontend-bice-eta.vercel.app"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

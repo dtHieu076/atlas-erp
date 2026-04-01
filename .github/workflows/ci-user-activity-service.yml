@@ -43,12 +43,10 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
 
-          # 3. Tìm và cập nhật mã tag image mới vào file deployment
-          # LƯU Ý: Đảm bảo đường dẫn file này khớp với cấu trúc thực tế trong repo atlas-erp-config-k8s của bạn. 
-          # Nếu bạn lỡ viết sai chính tả thành "deloyment.yaml" như các service trước, hãy tự sửa lại ở đây nhé.
-          sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:${{ github.sha }}|g" 2-apps/user-activity-k8s/user-activity-deployment.yaml
+          # 3. Tìm và cập nhật mã tag image mới vào file deployment (Đã sửa lại tên file bị sai chính tả)
+          sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:${{ github.sha }}|g" 2-apps/user-activity-k8s/user-activity-deloyment.yaml
 
-          # 4. Lưu và Push sự thay đổi lên nhánh main của Config Repo
-          git add 2-apps/user-activity-k8s/user-activity-deployment.yaml
+          # 4. Lưu và Push sự thay đổi lên nhánh main của Config Repo (Đã sửa lại tên file)
+          git add 2-apps/user-activity-k8s/user-activity-deloyment.yaml
           git commit -m "CD: Tự động cập nhật user-activity-service image tag thành ${{ github.sha }}"
           git push
