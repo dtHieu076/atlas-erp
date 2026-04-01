@@ -44,11 +44,9 @@ jobs:
           git config user.email "actions@github.com"
 
           # 3. Tìm và đổi tag image trong file user-activity-deployment.yaml
-          # Lưu ý: Cấu trúc thư mục này được ngoại suy từ mẫu mail-service. 
-          # Hãy sửa lại đoạn "2-apps/user-activity-k8s/..." bên dưới nếu cấu trúc thực tế của bạn khác.
           sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:${{ github.sha }}|g" 2-apps/user-activity-k8s/user-activity-deloyment.yaml
 
           # 4. Commit và đẩy cấu hình mới lên GitHub
-          git add 2-apps/user-activity-k8s/user-activity-deployment.yaml
+          git add 2-apps/user-activity-k8s/user-activity-deloyment.yaml
           git commit -m "CD: Tự động cập nhật user-activity-service image tag thành ${{ github.sha }}"
           git push
