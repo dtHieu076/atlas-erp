@@ -1,0 +1,53 @@
+name: CI - Build & Push AI Service
+
+on:
+  push:
+    branches:
+      - main
+    # Chỉ chạy kịch bản này khi có code thay đổi trong thư mục ai-service
+    paths:
+      - 'ai-service/**'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Bước 1 - Kéo mã nguồn về máy ảo
+        uses: actions/checkout@v4
+
+      - name: 🐳 Bước 2 - Thiết lập Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Bước 3 - Đăng nhập vào Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🚀 Bước 4 - Build và Push Docker Image cho AI Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ai-service
+          file: ./ai-service/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-service:${{ github.sha }}
+
+      - name: 🔄 Bước 5 - Cập nhật tag mới vào Config Repo (Dành cho ArgoCD)
+        run: |
+          # 1. Clone đúng repo chứa cấu hình (atlas-erp-config-k8s)
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/dtHieu076/atlas-erp-config-k8s.git
+          cd atlas-erp-config-k8s
+
+          # 2. Định danh Bot commit
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+          # 3. Thay thế tag image cũ bằng mã SHA mới 
+          # LƯU Ý: Tên file đang viết theo đúng cây thư mục bạn cung cấp là ai-deloyment.yaml (bị thiếu chữ p)
+          sed -i "s|image: ${{ secrets.DOCKERHUB_USERNAME }}/ai-service:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/ai-service:${{ github.sha }}|g" 2-apps/ai-k8s/ai-deloyment.yaml
+
+          # 4. Commit và Push thay đổi
+          git add 2-apps/ai-k8s/ai-deloyment.yaml
+          git commit -m "CD: Tự động cập nhật ai-service image tag thành ${{ github.sha }}"
+          git push
