@@ -20,9 +20,7 @@
     <description>Mail service for ERP platform</description>
 
     <properties>
-        <java.version>25</java.version>
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
+        <java.version>21</java.version>
     </properties>
 
     <!-- Dependency Management giống admin-service -->
