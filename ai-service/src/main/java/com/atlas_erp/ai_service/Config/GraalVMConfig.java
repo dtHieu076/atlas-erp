@@ -11,18 +11,23 @@ import org.springframework.context.annotation.ImportRuntimeHints;
 @ImportRuntimeHints(GraalVMConfig.NettyHints.class)
 public class GraalVMConfig {
 
-    // Lớp này dùng để "nhắc nhở" GraalVM giữ lại các biến ngầm của Netty
     static class NettyHints implements RuntimeHintsRegistrar {
         @Override
         public void registerHints(RuntimeHints hints, ClassLoader classLoader) {
-            // Dặn GraalVM giữ lại các biến (Fields) trong các class JCTools của Netty
+            // 1. Giữ lại producerIndex
             hints.reflection().registerType(
                     TypeReference.of(
                             "io.netty.util.internal.shaded.org.jctools.queues.unpadded.MpscUnpaddedArrayQueueProducerIndexField"),
                     MemberCategory.DECLARED_FIELDS);
+            // 2. Giữ lại consumerIndex
             hints.reflection().registerType(
                     TypeReference.of(
                             "io.netty.util.internal.shaded.org.jctools.queues.unpadded.MpscUnpaddedArrayQueueConsumerIndexField"),
+                    MemberCategory.DECLARED_FIELDS);
+            // 3. Giữ lại producerLimit (Bổ sung thêm dòng này để trị dứt điểm lỗi hiện tại)
+            hints.reflection().registerType(
+                    TypeReference.of(
+                            "io.netty.util.internal.shaded.org.jctools.queues.unpadded.MpscUnpaddedArrayQueueProducerLimitField"),
                     MemberCategory.DECLARED_FIELDS);
         }
     }
