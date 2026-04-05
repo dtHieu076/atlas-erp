@@ -1,29 +1,50 @@
-# Stage 1: Build Native Image bằng GraalVM JDK 25
-FROM ghcr.io/graalvm/native-image-community:25-ol9 AS build
+# ==========================================
+# STAGE 1: Builder (Biên dịch AOT)
+# ==========================================
+FROM ghcr.io/graalvm/native-image-community:25-ol9 AS builder
+
 WORKDIR /app
 
-# Cài đặt maven (vì base image này chỉ có JDK)
-RUN microdnf install -y maven
+# Copy Maven wrapper và pom.xml (Tận dụng cache)
+COPY mvnw mvnw.cmd ./
+COPY .mvn .mvn
+COPY pom.xml ./
 
-# Copy pom.xml và tải dependencies trước
-COPY pom.xml .
-RUN mvn dependency:go-offline
+# Cấp quyền và tải dependencies
+RUN chmod +x mvnw
+RUN ./mvnw dependency:go-offline -B
 
-# Copy toàn bộ source code và build ra file nhị phân (AOT)
+# Copy toàn bộ source code
 COPY src ./src
-# Lệnh này sẽ kích hoạt GraalVM compiler thay vì chỉ đóng gói .jar
-RUN mvn -Pnative native:compile -DskipTests
 
-# Stage 2: Chạy ứng dụng (Dùng Oracle Linux Micro cho cực nhẹ và tương thích thư viện C)
-# Lưu ý: Không dùng Alpine vì GraalVM mặc định build với glibc (Alpine dùng musl)
-FROM oraclelinux:9-micro
+# Biên dịch ra Native Image (AOT)
+# Lưu ý: Yêu cầu Spring Boot 3.x/4.x và phải có profile native
+RUN ./mvnw clean native:compile -Pnative -DskipTests
+
+# ==========================================
+# STAGE 2: Production (Image siêu nhẹ)
+# ==========================================
+FROM ubuntu:22.04
+
+# Cài đặt wget (cho healthcheck) và ca-certificates (bắt buộc để gọi API HTTPS ra LLM)
+RUN apt-get update && apt-get install -y wget ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Tạo user và group bảo mật
+RUN groupadd -g 1000 aiapp && \
+    useradd -u 1000 -g aiapp -s /bin/bash -m aiapp
+
 WORKDIR /app
 
-# Copy file thực thi nhị phân từ Stage 1 sang Stage 2
-# LƯU Ý QUAN TRỌNG: Sửa 'ai-service' thành <artifactId> của bạn trong pom.xml
-COPY --from=build /app/target/ai-service ./app
+# Copy file thực thi (binary) từ builder. 
+# CHÚ Ý: Đảm bảo tên file trùng với artifactId của bạn.
+COPY --from=builder /app/target/ai-service ./ai-service
 
-# Expose port mặc định của Spring Boot
+# Cấp quyền sở hữu
+RUN chown -R aiapp:aiapp /app
+
+# Chuyển sang user bảo mật
+USER aiapp
+
 EXPOSE 8080
 
 # Chuyển cấu hình Java Agent thành Biến môi trường tiêu chuẩn của OpenTelemetry
@@ -37,5 +58,9 @@ ENV OTEL_SERVICE_NAME="ai-service" \
     OTEL_METRIC_EXPORT_INTERVAL="30000" \
     OTEL_EXPORTER_OTLP_TIMEOUT="30000"
 
-# Chạy file thực thi trực tiếp (Không có lệnh java)
-ENTRYPOINT ["/app/app"]
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+
+# Chạy file thực thi trực tiếp
+ENTRYPOINT ["/app/ai-service"]
