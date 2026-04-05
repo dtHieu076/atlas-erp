@@ -14,7 +14,7 @@ COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
 # Mở port 8080 để bên ngoài gọi vào
 EXPOSE 8080
 
-# .Thiết lập user non-root (185) để bảo mật
+# Thiết lập user non-root (185) để bảo mật
 USER 185
 
 # Cấu hình các biến môi trường cho Java
