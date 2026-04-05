@@ -1,38 +1,41 @@
-# Stage 1: Build ứng dụng
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+# Stage 1: Build Native Image bằng GraalVM JDK 25
+FROM ghcr.io/graalvm/native-image-community:25-ol9 AS build
 WORKDIR /app
 
-# Copy pom.xml và tải dependencies trước (Tận dụng cache của Docker giúp build lần sau nhanh hơn)
+# Cài đặt maven (vì base image này chỉ có JDK)
+RUN microdnf install -y maven
+
+# Copy pom.xml và tải dependencies trước
 COPY pom.xml .
 RUN mvn dependency:go-offline
 
-# Copy toàn bộ source code và build ra file .jar
+# Copy toàn bộ source code và build ra file nhị phân (AOT)
 COPY src ./src
-RUN mvn clean package -DskipTests
+# Lệnh này sẽ kích hoạt GraalVM compiler thay vì chỉ đóng gói .jar
+RUN mvn -Pnative native:compile -DskipTests
 
-# Stage 2: Chạy ứng dụng (Dùng JRE Alpine cho siêu nhẹ)
-FROM eclipse-temurin:17-jre-alpine
+# Stage 2: Chạy ứng dụng (Dùng Oracle Linux Micro cho cực nhẹ và tương thích thư viện C)
+# Lưu ý: Không dùng Alpine vì GraalVM mặc định build với glibc (Alpine dùng musl)
+FROM oraclelinux:9-micro
 WORKDIR /app
 
-# Tải Agent trực tiếp từ GitHub (Dùng bản OpenTelemetry chuẩn)
-ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
-
-# Copy file .jar từ Stage 1 sang Stage 2 và đổi tên thành app.jar
-COPY --from=build /app/target/*.jar app.jar
+# Copy file thực thi nhị phân từ Stage 1 sang Stage 2
+# LƯU Ý QUAN TRỌNG: Sửa 'ai-service' thành <artifactId> của bạn trong pom.xml
+COPY --from=build /app/target/ai-service ./app
 
 # Expose port mặc định của Spring Boot
 EXPOSE 8080
 
-ENTRYPOINT ["java", \ 
-    "-javaagent:/app/opentelemetry-javaagent.jar",  \
-    "-Dotel.service.name=ai-service",  \
-    "-Dotel.exporter.otlp.endpoint=https://otlp-gateway-prod-ap-southeast-1.grafana.net/otlp",\  
-    "-Dotel.exporter.otlp.headers=Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09",  \
-    "-Dotel.exporter.otlp.protocol=http/protobuf",  \
-    "-Dotel.logs.exporter=otlp",  \
-    "-Dotel.metrics.exporter=otlp",  \
-    "-Dotel.instrumentation.logback-appender.enabled=true",  \
-    "-Dotel.metric.export.interval=30000",  \
-    "-Dotel.exporter.otlp.timeout=30000",  \
-    "-jar", "app.jar"]
+# Chuyển cấu hình Java Agent thành Biến môi trường tiêu chuẩn của OpenTelemetry
+ENV OTEL_SERVICE_NAME="ai-service" \
+    OTEL_EXPORTER_OTLP_ENDPOINT="https://otlp-gateway-prod-ap-southeast-1.grafana.net/otlp" \
+    OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09" \
+    OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf" \
+    OTEL_LOGS_EXPORTER="otlp" \
+    OTEL_METRICS_EXPORTER="otlp" \
+    OTEL_INSTRUMENTATION_LOGBACK_APPENDER_ENABLED="true" \
+    OTEL_METRIC_EXPORT_INTERVAL="30000" \
+    OTEL_EXPORTER_OTLP_TIMEOUT="30000"
 
+# Chạy file thực thi trực tiếp (Không có lệnh java)
+ENTRYPOINT ["/app/app"]
