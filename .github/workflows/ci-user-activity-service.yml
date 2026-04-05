@@ -1,4 +1,4 @@
-name: CI - Build & Push User Activity Service
+name: CI - Build & Push User Activity Quarkus Service
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
     # Chỉ kích hoạt CI khi có thay đổi trong code của user-activity-service
     paths:
-      - 'user-activity-service/**'
+      - 'user-activity-quarkus-service/**'
 
 jobs:
   build-and-push:
@@ -28,8 +28,8 @@ jobs:
       - name: 🚀 Bước 4 - Build & Push Docker Image cho User Activity Service
         uses: docker/build-push-action@v5
         with:
-          context: ./user-activity-service
-          file: ./user-activity-service/Dockerfile
+          context: ./user-activity-quarkus-service
+          file: ./user-activity-quarkus-service/src/main/docker/Dockerfile.jvm
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/user-activity-service:${{ github.sha }}
 
