@@ -1,28 +1,22 @@
-# Sử dụng base image là Red Hat Universal Base Image (UBI) chứa sẵn Java 21
+# Sử dụng base image
 FROM registry.access.redhat.com/ubi8/openjdk-21:1.18
 
-# Cấu hình ngôn ngữ
 ENV LANGUAGE='en_US:en'
 
-# Copy file jar và thư mục lib đã được Quarkus build ra vào image
-# (Quarkus build ra cấu trúc fast-jar rất tối ưu)
+# --- SỬA CÁC DÒNG COPY Ở ĐÂY (Bỏ dấu / ở trước chữ target và certs) ---
 COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
 COPY --chown=185 target/quarkus-app/*.jar /deployments/
 COPY --chown=185 target/quarkus-app/app/ /deployments/app/
 COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
 
-# Copy các file chứng chỉ Kafka vào thư mục deployments/certs bên trong image
+# Copy certs (không có dấu / ở trước chữ certs)
 COPY --chown=185 certs/ /deployments/certs/
+# ------------------------------------------------------------------
 
-# Mở port 8080 để bên ngoài gọi vào
 EXPOSE 8080
-
-# Thiết lập user non-root (185) để bảo mật
 USER 185
 
-# Cấu hình các biến môi trường cho Java
 ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
 ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 
-# Lệnh khởi chạy ứng dụng
 ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]
