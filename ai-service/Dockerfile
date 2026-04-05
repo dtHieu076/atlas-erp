@@ -1,7 +1,7 @@
 # ==========================================
 # STAGE 1: Builder (Biên dịch AOT)
 # ==========================================
-FROM ghcr.io/graalvm/native-image-community:25-ol9 AS builder
+FROM ghcr.io/graalvm/native-image-community:21-ol9 AS builder
 
 WORKDIR /app
 
