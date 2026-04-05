@@ -1,5 +1,6 @@
 package com.atlas_erp.mail_service.service;
 
+import com.atlas_erp.mail_service.model.MailCampaign;
 import com.atlas_erp.mail_service.model.MailJob;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,13 +17,20 @@ import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+
+import com.atlas_erp.mail_service.config.TemplateHints;
 import com.atlas_erp.mail_service.dto.TemplateDTO;
+
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
+import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@ImportRuntimeHints(TemplateHints.class)
+@RegisterReflectionForBinding({ TemplateDTO.class, MailJob.class, MailCampaign.class })
 public class TemplateService {
 
     private final PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
