@@ -11,6 +11,9 @@ COPY --chown=185 target/quarkus-app/*.jar /deployments/
 COPY --chown=185 target/quarkus-app/app/ /deployments/app/
 COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
 
+# Copy các file chứng chỉ Kafka vào thư mục deployments/certs bên trong image
+COPY --chown=185 certs/ /deployments/certs/
+
 # Mở port 8080 để bên ngoài gọi vào
 EXPOSE 8080
 
