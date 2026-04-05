@@ -1,66 +1,38 @@
-# ==========================================
-# STAGE 1: Builder (Biên dịch AOT)
-# ==========================================
-FROM ghcr.io/graalvm/native-image-community:21-ol9 AS builder
-
+# Stage 1: Build ứng dụng
+FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# Copy Maven wrapper và pom.xml (Tận dụng cache)
-COPY mvnw mvnw.cmd ./
-COPY .mvn .mvn
-COPY pom.xml ./
+# Copy pom.xml và tải dependencies trước (Tận dụng cache của Docker giúp build lần sau nhanh hơn)
+COPY pom.xml .
+RUN mvn dependency:go-offline
 
-# Cấp quyền và tải dependencies
-RUN chmod +x mvnw
-RUN ./mvnw dependency:go-offline -B
-
-# Copy toàn bộ source code
+# Copy toàn bộ source code và build ra file .jar
 COPY src ./src
+RUN mvn clean package -DskipTests
 
-# Biên dịch ra Native Image (AOT)
-# Lưu ý: Yêu cầu Spring Boot 3.x/4.x và phải có profile native
-RUN ./mvnw clean native:compile -Pnative -DskipTests
-
-# ==========================================
-# STAGE 2: Production (Image siêu nhẹ)
-# ==========================================
-FROM ubuntu:22.04
-
-# Cài đặt wget (cho healthcheck) và ca-certificates (bắt buộc để gọi API HTTPS ra LLM)
-RUN apt-get update && apt-get install -y wget ca-certificates && rm -rf /var/lib/apt/lists/*
-
-# Tạo user và group bảo mật
-RUN groupadd -g 1000 aiapp && \
-    useradd -u 1000 -g aiapp -s /bin/bash -m aiapp
-
+# Stage 2: Chạy ứng dụng (Dùng JRE Alpine cho siêu nhẹ)
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Copy file thực thi (binary) từ builder. 
-# CHÚ Ý: Đảm bảo tên file trùng với artifactId của bạn.
-COPY --from=builder /app/target/ai-service ./ai-service
+# Tải Agent trực tiếp từ GitHub (Dùng bản OpenTelemetry chuẩn)
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 
-# Cấp quyền sở hữu
-RUN chown -R aiapp:aiapp /app
+# Copy file .jar từ Stage 1 sang Stage 2 và đổi tên thành app.jar
+COPY --from=build /app/target/*.jar app.jar
 
-# Chuyển sang user bảo mật
-USER aiapp
-
+# Expose port mặc định của Spring Boot
 EXPOSE 8080
 
-# Chuyển cấu hình Java Agent thành Biến môi trường tiêu chuẩn của OpenTelemetry
-ENV OTEL_SERVICE_NAME="ai-service" \
-    OTEL_EXPORTER_OTLP_ENDPOINT="https://otlp-gateway-prod-ap-southeast-1.grafana.net/otlp" \
-    OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09" \
-    OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf" \
-    OTEL_LOGS_EXPORTER="otlp" \
-    OTEL_METRICS_EXPORTER="otlp" \
-    OTEL_INSTRUMENTATION_LOGBACK_APPENDER_ENABLED="true" \
-    OTEL_METRIC_EXPORT_INTERVAL="30000" \
-    OTEL_EXPORTER_OTLP_TIMEOUT="30000"
+ENTRYPOINT ["java", \ 
+    "-javaagent:/app/opentelemetry-javaagent.jar",  \
+    "-Dotel.service.name=ai-service",  \
+    "-Dotel.exporter.otlp.endpoint=https://otlp-gateway-prod-ap-southeast-1.grafana.net/otlp",\  
+    "-Dotel.exporter.otlp.headers=Authorization=Basic MTU0NDc5MTpnbGNfZXlKdklqb2lNVFk0TmpJMU5TSXNJbTRpT2lKemRHRmpheTB4TlRRME56a3hMVzkwWld3dFlYQndMV3BoZG1FdGFXNTBaV2R5WVhScGIyNGlMQ0pySWpvaWNEbDROamRNVWtGWmJEa3hPSGM0UnpkUVZqZHpiVEZGSWl3aWJTSTZleUp5SWpvaWNISnZaQzFoY0MxemIzVjBhR1ZoYzNRdE1TSjlmUT09",  \
+    "-Dotel.exporter.otlp.protocol=http/protobuf",  \
+    "-Dotel.logs.exporter=otlp",  \
+    "-Dotel.metrics.exporter=otlp",  \
+    "-Dotel.instrumentation.logback-appender.enabled=true",  \
+    "-Dotel.metric.export.interval=30000",  \
+    "-Dotel.exporter.otlp.timeout=30000",  \
+    "-jar", "app.jar"]
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
-
-# Chạy file thực thi trực tiếp
-ENTRYPOINT ["/app/ai-service"]
