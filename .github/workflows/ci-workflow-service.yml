@@ -24,7 +24,9 @@ jobs:
 
       - name: 🔨 Bước 1.6 - Build mã nguồn bằng Maven
         working-directory: ./workflow-quarkus-service
-        run: ./mvnw clean package -DskipTests
+        run: |
+          chmod +x ./mvnw
+          ./mvnw clean package -DskipTests
 
       - name: 🐳 Bước 2 - Thiết lập Docker Buildx
         uses: docker/setup-buildx-action@v3

@@ -3,7 +3,7 @@ FROM registry.access.redhat.com/ubi9/openjdk-21:1.20
 
 ENV LANGUAGE='en_US:en'
 
-# Copy theo 4 layer riêng biệt của Quarkus (Fast-jar) để tối ưu hóa cache Docker
+# Copy theo 4 layer riêng biệt của Quarkus (Fast-jar) để tối ưu hóa cache Docker.
 COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
 COPY --chown=185 target/quarkus-app/*.jar /deployments/
 COPY --chown=185 target/quarkus-app/app/ /deployments/app/
