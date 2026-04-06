@@ -46,12 +46,12 @@ public class MailJobQueue {
             job.setTemplateId(event.getTemplateId());
             try {
                 if (event.getTemplateData() != null) {
-                    job.setTemplateData(mapper.writeValueAsString(event.getTemplateData()));
+                    job.setTemplateData(mapper.valueToTree(event.getTemplateData()));
                 } else {
-                    job.setTemplateData("{}");
+                    job.setTemplateData(mapper.valueToTree(new java.util.HashMap<String, Object>()));
                 }
             } catch (Exception e) {
-                job.setTemplateData("{}");
+                job.setTemplateData(mapper.valueToTree(new java.util.HashMap<String, Object>()));
             }
             job.setStatus(MailJob.MailJobStatus.PENDING);
             job.setCampaign(campaign);

@@ -4,7 +4,11 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * JPA Entity for mail_jobs table in PostgreSQL.
@@ -15,6 +19,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@RegisterForReflection
 public class MailJob {
 
     @Id
@@ -28,7 +33,8 @@ public class MailJob {
     private String templateId;
 
     @Column(name = "template_data", columnDefinition = "jsonb")
-    private String templateData;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private JsonNode templateData;
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)

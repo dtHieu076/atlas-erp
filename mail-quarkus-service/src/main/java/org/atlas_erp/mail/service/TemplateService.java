@@ -52,7 +52,13 @@ public class TemplateService {
     }
 
     public String render(MailJob job) {
-        return render(job.getTemplateId(), job.getTemplateData());
+        try {
+            String templateDataJson = objectMapper.writeValueAsString(job.getTemplateData());
+            return render(job.getTemplateId(), templateDataJson);
+        } catch (Exception e) {
+            log.severe("Error converting JsonNode to String: " + e.getMessage());
+            return render(job.getTemplateId(), "{}");
+        }
     }
 
     /**

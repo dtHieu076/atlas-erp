@@ -1,8 +1,10 @@
 package org.atlas_erp.mail.dto;
 
 import lombok.Data;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 
 @Data
+@RegisterForReflection
 public class ApiResponse<T> {
     private boolean success;
     private String message;

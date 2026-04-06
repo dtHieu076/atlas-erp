@@ -5,9 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.List;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@RegisterForReflection
 public class CampaignPageDTO {
     private List<CampaignResponseDTO> content;
     private int page;
