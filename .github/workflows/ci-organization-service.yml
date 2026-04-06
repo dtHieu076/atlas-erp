@@ -1,0 +1,60 @@
+name: CI - Build & Push Organization Quarkus Service
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'organization-quarkus-service/**'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Bước 1 - Kéo mã nguồn
+        uses: actions/checkout@v4
+
+      - name: ☕ Bước 1.5 - Thiết lập Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: 🔨 Bước 1.6 - Build mã nguồn bằng Maven
+        working-directory: ./organization-quarkus-service
+        run: |
+          chmod +x ./mvnw
+          ./mvnw clean package -DskipTests
+
+      - name: 🐳 Bước 2 - Thiết lập Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Bước 3 - Đăng nhập Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🚀 Bước 4 - Build & Push Docker Image cho Organization Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./organization-quarkus-service
+          file: ./organization-quarkus-service/src/main/docker/Dockerfile.jvm
+          push: true
+          tags: dthieudocker/organization-service:${{ github.sha }}
+
+      - name: 🔄 Bước 5 - Cập nhật tag vào Config Repo (ArgoCD)
+        run: |
+          git clone https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/dtHieu076/atlas-erp-config-k8s.git
+          cd atlas-erp-config-k8s
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          
+          # LƯU Ý: Chỉnh sửa lại đường dẫn yaml ở dưới nếu tên file deployment hoặc thư mục của organization khác nhé!
+          sed -i "s|image: dthieudocker/organization-service:.*|image: dthieudocker/organization-service:${{ github.sha }}|g" 2-apps/organization-k8s/organization-deployment.yaml
+          
+          git add 2-apps/organization-k8s/organization-deployment.yaml
+          git commit -m "CD: Tự động cập nhật organization-service image tag thành ${{ github.sha }}"
+          git push
