@@ -1,8 +1,10 @@
 package org.atlas_erp.Consumer;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-
+import java.util.Map;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.atlas_erp.Entity.MailCampaign;
 import org.atlas_erp.Entity.MailJob;
 import org.atlas_erp.Repository.MailCampaignRepository;
@@ -12,21 +14,28 @@ import org.eclipse.microprofile.reactive.messaging.Channel;
 import org.eclipse.microprofile.reactive.messaging.Emitter;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.transaction.TransactionManager;
+import jakarta.transaction.Status;
 
 @ApplicationScoped
 public class MailRequestConsumer {
+
     private final ObjectMapper objectMapper;
     private final MailJobRepository jobRepo;
     private final MailCampaignRepository campaignRepo;
 
     @Inject
-    @Channel("internal-jobs")
-    Emitter<Long> jobEmitter;
+    @Channel("internal-jobs-out")
+    Emitter<String> jobEmitter; // 🔥 đổi sang String
+
+    @Inject
+    TransactionManager tm;
 
     public MailRequestConsumer(MailCampaignRepository campaignRepo,
             MailJobRepository jobRepo,
@@ -37,36 +46,114 @@ public class MailRequestConsumer {
     }
 
     @Incoming("mail-requests")
+    public void consume(MailEventDTO event) throws Exception {
+
+        if (event == null || event.getRecipients() == null || event.getRecipients().isEmpty()) {
+            Log.warn("Event không hợp lệ");
+            return;
+        }
+
+        // 1. tạo campaign
+        MailCampaign campaign = createCampaign(event);
+
+        String jsonData = objectMapper.writeValueAsString(event.getTemplateData());
+
+        int batchSize = 20;
+        List<MailEventDTO.Recipient> recipients = event.getRecipients();
+
+        // 2. chia batch
+        for (int i = 0; i < recipients.size(); i += batchSize) {
+            List<MailEventDTO.Recipient> batch = recipients.subList(i, Math.min(i + batchSize, recipients.size()));
+
+            processBatch(batch, campaign, event, jsonData);
+        }
+    }
+
+    // =========================
+    // TRANSACTION METHODS
+    // =========================
+
     @Transactional
-    public void consume(MailEventDTO event) throws JsonProcessingException {
-        // 1. Khởi tạo Campaign
+    public MailCampaign createCampaign(MailEventDTO event) {
         MailCampaign campaign = new MailCampaign();
         campaign.setTemplateId(event.getTemplateId());
         campaign.setSendType(event.getSendType());
         campaign.setRecipientsCount(event.getRecipients().size());
+        campaign.setPendingCount(event.getRecipients().size());
+
         campaignRepo.persist(campaign);
+        return campaign;
+    }
 
-        String jsonData = objectMapper.writeValueAsString(event.getTemplateData());
+    @Transactional
+    public void processBatch(List<MailEventDTO.Recipient> recipients,
+            MailCampaign campaign,
+            MailEventDTO event,
+            String jsonData) {
 
-        // Danh sách tạm để giữ ID
         List<Long> jobIds = new ArrayList<>();
 
-        // 2. Lưu tất cả Jobs vào DB trước
-        for (MailEventDTO.Recipient recipient : event.getRecipients()) {
+        Map<String, Object> baseData;
+        try {
+            baseData = objectMapper.readValue(
+                    jsonData,
+                    new TypeReference<Map<String, Object>>() {
+                    });
+        } catch (Exception e) {
+            throw new RuntimeException("Parse templateData failed", e);
+        }
+
+        for (MailEventDTO.Recipient r : recipients) {
+
+            // clone data cho từng user
+            Map<String, Object> data = new HashMap<>(baseData);
+
+            // inject userName
+            data.put("userName", r.getName());
+
             MailJob job = new MailJob();
             job.setCampaign(campaign);
-            job.setRecipientEmail(recipient.getEmail());
+            job.setRecipientEmail(r.getEmail());
             job.setTemplateId(event.getTemplateId());
-            job.setTemplateData(jsonData);
+
+            try {
+                job.setTemplateData(objectMapper.writeValueAsString(data));
+            } catch (Exception e) {
+                throw new RuntimeException("Serialize templateData failed", e);
+            }
+
             job.setStatus(MailJob.MailJobStatus.PENDING);
 
             jobRepo.persist(job);
-            jobRepo.flush();
-
             jobIds.add(job.getId());
         }
 
-        // 3. Sau khi vòng lặp kết thúc, transaction chuẩn bị commit.
-        jobIds.forEach(id -> jobEmitter.send(id));
+        jobRepo.flush();
+
+        // 🔥 emit sau commit
+        try {
+            tm.getTransaction().registerSynchronization(new jakarta.transaction.Synchronization() {
+
+                @Override
+                public void beforeCompletion() {
+                }
+
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == Status.STATUS_COMMITTED) {
+                        try {
+                            String payload = objectMapper.writeValueAsString(jobIds);
+                            jobEmitter.send(payload);
+                            Log.infof("Emit batch %d jobs thành công", jobIds.size());
+                        } catch (Exception e) {
+                            Log.error("Lỗi serialize jobIds", e);
+                        }
+                    }
+                }
+            });
+
+        } catch (Exception e) {
+            Log.error("Lỗi register transaction sync", e);
+        }
     }
 }

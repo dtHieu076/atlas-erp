@@ -32,8 +32,7 @@ public class MailEventDTO {
     private Map<String, Object> templateData;
 
     @NotEmpty(message = "Recipients list cannot be empty")
-    @Valid // Quan trọng: Để validate từng Recipient bên trong list
-    private List<Recipient> recipients;
+    private List<@Valid Recipient> recipients;
 
     private List<String> tags;
 
