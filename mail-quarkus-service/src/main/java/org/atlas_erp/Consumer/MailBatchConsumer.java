@@ -19,7 +19,9 @@ public class MailBatchConsumer {
     }
 
     @Incoming("mail-batch-requests-in")
-    @Blocking(value = "mail-db-pool", ordered = false) // Cho phép xử lý song song các batch khác nhau
+    // @Blocking(value = "mail-db-pool", ordered = false) // Cho phép xử lý song
+    // song các batch khác nhau
+    @Blocking(ordered = true) // Đảm bảo thứ tự xử lý batch theo campaign
     public void consumeBatch(MailBatchEventDTO batchEvent) {
         if (batchEvent == null || batchEvent.getBatchRecipients() == null) {
             return;

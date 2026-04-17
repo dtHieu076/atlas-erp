@@ -22,7 +22,7 @@ public class MailRequestConsumer {
 
     // Bắn payload trung gian ra Topic mới
     @Inject
-    @Channel("mail-batch-requests-in")
+    @Channel("mail-batch-requests-out")
     Emitter<MailBatchEventDTO> batchEmitter;
 
     public MailRequestConsumer(MailProcessorService mailProcessorService, ObjectMapper objectMapper) {
@@ -56,7 +56,7 @@ public class MailRequestConsumer {
                     batch);
 
             batchEmitter.send(batchEvent);
-            Log.infof("Da day batch %d users của Campaign %s ra topic xu ly con", batch.size(), campaign.getId());
+            // Log.infof("Da day batch %d users của Campaign %s ra topic xu ly con", batch.size(), campaign.getId());
         }
     }
 }
