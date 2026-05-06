@@ -7,8 +7,6 @@ import com.atlas_erp.ai_service.Entity.EmployeeEntity;
 import com.atlas_erp.ai_service.enums.EmploymentStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
@@ -18,14 +16,6 @@ import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.*;
 
-/**
- * HR Tools - Cung cấp các tools để truy vấn dữ liệu HR
- * 
- * Nguyên tắc thiết kế:
- * - Tools đại diện cho khả năng, không phải câu truy vấn cụ thể
- * - LLM tự quyết định tool nào được gọi dựa trên câu hỏi
- * - Chỉ cho phép SELECT (read-only) để bảo mật
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -35,32 +25,35 @@ public class HrTools {
     private final AttendanceRepository attendanceRepository;
     private final DataSource dataSource;
 
-    /**
-     * Tool tổng quát: Thực thi câu truy vấn SQL để lấy dữ liệu HR
-     * CHỈ sử dụng câu lệnh SELECT (read-only)
-     */
-    @Tool(name = "query_hr_database", description = "Thực thi câu truy vấn SQL để lấy dữ liệu HR. " +
-            "CHỈ sử dụng câu lệnh SELECT (read-only). " +
-            "Không được phép sử dụng INSERT, UPDATE, DELETE, DROP, TRUNCATE. " +
-            "Ví dụ: SELECT COUNT(*) FROM employees WHERE status = 'ACTIVE'")
-    public String queryHrDatabase(
-            @ToolParam(description = "Câu truy vấn SQL (CHỈ SELECT)") String sql) {
+    // Internal Records for Service logic
+    public record SqlQueryRequest(String sql) {
+    }
 
+    public record SearchRequest(String name) {
+    }
+
+    public record LimitRequest(int limit) {
+    }
+
+    public record DateRequest(String date) {
+    }
+
+    public record GenderRatioRequest(String departmentName) {
+    }
+
+    public record IdRequest(UUID id) {
+    }
+
+    public record DaysRequest(int days) {
+    }
+
+    public String queryHrDatabase(SqlQueryRequest request) {
+        String sql = request.sql();
         log.info("Executing HR query: {}", sql);
 
-        // Security check: chỉ cho phép SELECT
         String upperSql = sql.trim().toUpperCase();
-        if (!upperSql.startsWith("SELECT")) {
-            log.warn("Blocked non-SELECT query: {}", sql);
-            return "Error: Chỉ chấp nhận câu lệnh SELECT. Câu lệnh '" + sql + "' không được phép.";
-        }
-
-        // Block dangerous operations
-        if (upperSql.contains("DROP") || upperSql.contains("DELETE") ||
-                upperSql.contains("UPDATE") || upperSql.contains("INSERT") ||
-                upperSql.contains("TRUNCATE") || upperSql.contains("ALTER")) {
-            log.warn("Blocked dangerous SQL: {}", sql);
-            return "Error: Câu lệnh chứa từ khóa cấm. Chỉ chấp nhận SELECT.";
+        if (!upperSql.startsWith("SELECT") || isDangerous(upperSql)) {
+            return "Error: Chỉ chấp nhận câu lệnh SELECT an toàn.";
         }
 
         try (Connection conn = dataSource.getConnection();
@@ -73,294 +66,155 @@ public class HrTools {
             while (rs.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 for (int i = 1; i <= columnCount; i++) {
-                    String columnName = rs.getMetaData().getColumnName(i);
-                    Object value = rs.getObject(i);
-                    row.put(columnName, value);
+                    row.put(rs.getMetaData().getColumnName(i), rs.getObject(i));
                 }
                 results.add(row);
             }
-
-            log.info("Query returned {} rows", results.size());
             return toJson(results);
-
         } catch (Exception e) {
-            log.error("Error executing query: {}", e.getMessage(), e);
             return "Error executing query: " + e.getMessage();
         }
     }
 
-    /**
-     * Tìm kiếm nhân viên theo tên
-     */
-    @Tool(name = "search_employees", description = "Tìm kiếm nhân viên theo tên. " +
-            "Trả về thông tin cơ bản: id, employee_code, full_name, work_email, phone, status, hire_date.")
-    public String searchEmployees(
-            @ToolParam(description = "Tên nhân viên cần tìm (có thể là từng phần)") String name) {
-
-        log.info("Searching employees with name: {}", name);
-
+    public String searchEmployees(SearchRequest request) {
+        log.info("Searching employees with name: {}", request.name());
         try {
-            List<EmployeeEntity> employees = employeeRepository
-                    .findByFullNameContainingIgnoreCase(name);
-
-            List<Map<String, Object>> results = new ArrayList<>();
-            for (EmployeeEntity emp : employees) {
-                if (results.size() >= 50)
-                    break;
-                results.add(mapEmployeeToMap(emp));
-            }
-
-            return toJson(results);
-
+            List<EmployeeEntity> employees = employeeRepository.findByFullNameContainingIgnoreCase(request.name());
+            return toJson(employees.stream().limit(50).map(this::mapEmployeeToMap).toList());
         } catch (Exception e) {
-            log.error("Error searching employees: {}", e.getMessage(), e);
             return "Error: " + e.getMessage();
         }
     }
 
-    /**
-     * Lấy danh sách chấm công hôm nay
-     */
-    @Tool(name = "get_today_attendance", description = "Lấy danh sách chấm công hôm nay. " +
-            "Bao gồm: employee_id, full_name, check_in, check_out, status, worked_hours.")
     public String getTodayAttendance() {
-        log.info("Getting today's attendance");
+        return getAttendanceByDate(new DateRequest(LocalDate.now().toString()));
+    }
 
+    public String getEmployeeList(LimitRequest request) {
+        int actualLimit = Math.min(request.limit() > 0 ? request.limit() : 20, 100);
         try {
-            LocalDate today = LocalDate.now();
-            List<AttendanceEntity> attendances = attendanceRepository.findByWorkDate(today);
-
-            // Join với employee để lấy tên
-            Set<UUID> employeeIds = new HashSet<>();
-            for (AttendanceEntity att : attendances) {
-                employeeIds.add(att.getEmployeeId());
-            }
-
-            Map<UUID, EmployeeEntity> employeeMap = new HashMap<>();
-            if (!employeeIds.isEmpty()) {
-                for (EmployeeEntity emp : employeeRepository.findAllById(employeeIds)) {
-                    employeeMap.put(emp.getId(), emp);
-                }
-            }
-
-            List<Map<String, Object>> results = new ArrayList<>();
-            for (AttendanceEntity att : attendances) {
-                Map<String, Object> map = new LinkedHashMap<>();
-                map.put("attendance_id", att.getId());
-                map.put("employee_id", att.getEmployeeId());
-
-                EmployeeEntity emp = employeeMap.get(att.getEmployeeId());
-                if (emp != null) {
-                    map.put("employee_name", emp.getFullName());
-                    map.put("employee_code", emp.getEmployeeCode());
-                }
-
-                map.put("work_date", att.getWorkDate());
-                map.put("check_in", att.getCheckIn());
-                map.put("check_out", att.getCheckOut());
-                map.put("status", att.getStatus());
-                map.put("worked_hours", att.getWorkedHours());
-                results.add(map);
-            }
-
-            return toJson(results);
-
+            return toJson(
+                    employeeRepository.findAll().stream().limit(actualLimit).map(this::mapEmployeeToMap).toList());
         } catch (Exception e) {
-            log.error("Error getting today's attendance: {}", e.getMessage(), e);
             return "Error: " + e.getMessage();
         }
     }
 
-    /**
-     * Lấy danh sách nhân viên với giới hạn
-     */
-    @Tool(name = "get_employee_list", description = "Lấy danh sách nhân viên với giới hạn số lượng.")
-    public String getEmployeeList(
-            @ToolParam(description = "Số lượng nhân viên tối đa (mặc định 20)") int limit) {
-
-        log.info("Getting employee list with limit: {}", limit);
-
-        try {
-            int actualLimit = Math.min(limit, 100);
-
-            List<EmployeeEntity> allEmployees = employeeRepository.findAll();
-            List<Map<String, Object>> results = new ArrayList<>();
-
-            int count = 0;
-            for (EmployeeEntity emp : allEmployees) {
-                if (count >= actualLimit)
-                    break;
-                results.add(mapEmployeeToMap(emp));
-                count++;
-            }
-
-            return toJson(results);
-
-        } catch (Exception e) {
-            log.error("Error getting employee list: {}", e.getMessage(), e);
-            return "Error: " + e.getMessage();
-        }
-    }
-
-    /**
-     * Lấy thống kê nhân viên theo trạng thái
-     */
-    @Tool(name = "get_employee_statistics", description = "Lấy thống kê tổng quan về nhân viên. " +
-            "Bao gồm: tổng số, theo trạng thái (ACTIVE, PROBATION, SUSPENDED, etc.)")
     public String getEmployeeStatistics() {
-        log.info("Getting employee statistics");
-
         try {
             Map<String, Object> stats = new LinkedHashMap<>();
-
-            long total = employeeRepository.count();
-            stats.put("total_employees", total);
-
-            long active = employeeRepository.countByStatus(EmploymentStatus.ACTIVE);
-            long probation = employeeRepository.countByStatus(EmploymentStatus.PROBATION);
-            long suspended = employeeRepository.countByStatus(EmploymentStatus.SUSPENDED);
-            long resigned = employeeRepository.countByStatus(EmploymentStatus.RESIGNED);
-            long terminated = employeeRepository.countByStatus(EmploymentStatus.TERMINATED);
-
-            stats.put("active", active);
-            stats.put("probation", probation);
-            stats.put("suspended", suspended);
-            stats.put("resigned", resigned);
-            stats.put("terminated", terminated);
-
-            List<Map<String, Object>> resultList = new ArrayList<>();
-            resultList.add(stats);
-            return toJson(resultList);
-
+            stats.put("total_employees", employeeRepository.count());
+            stats.put("active", employeeRepository.countByStatus(EmploymentStatus.ACTIVE));
+            stats.put("probation", employeeRepository.countByStatus(EmploymentStatus.PROBATION));
+            return toJson(Collections.singletonList(stats));
         } catch (Exception e) {
-            log.error("Error getting employee statistics: {}", e.getMessage(), e);
             return "Error: " + e.getMessage();
         }
     }
 
-    /**
-     * Lấy thông tin chấm công theo ngày cụ thể
-     */
-    @Tool(name = "get_attendance_by_date", description = "Lấy danh sách chấm công theo ngày cụ thể. " +
-            "Ngày format: YYYY-MM-DD (ví dụ: 2024-01-15)")
-    public String getAttendanceByDate(
-            @ToolParam(description = "Ngày cần lấy thông tin (format: YYYY-MM-DD)") String date) {
-
-        log.info("Getting attendance for date: {}", date);
-
+    public String getAttendanceByDate(DateRequest request) {
+        log.info("Getting attendance for date: {}", request.date());
         try {
-            LocalDate workDate = LocalDate.parse(date);
+            LocalDate workDate = LocalDate.parse(request.date());
             List<AttendanceEntity> attendances = attendanceRepository.findByWorkDate(workDate);
-
-            // Join với employee để lấy tên
-            Set<UUID> employeeIds = new HashSet<>();
-            for (AttendanceEntity att : attendances) {
-                employeeIds.add(att.getEmployeeId());
-            }
-
-            Map<UUID, EmployeeEntity> employeeMap = new HashMap<>();
-            if (!employeeIds.isEmpty()) {
-                for (EmployeeEntity emp : employeeRepository.findAllById(employeeIds)) {
-                    employeeMap.put(emp.getId(), emp);
-                }
-            }
-
-            List<Map<String, Object>> results = new ArrayList<>();
-            for (AttendanceEntity att : attendances) {
-                Map<String, Object> map = new LinkedHashMap<>();
-                map.put("attendance_id", att.getId());
-                map.put("employee_id", att.getEmployeeId());
-
-                EmployeeEntity emp = employeeMap.get(att.getEmployeeId());
-                if (emp != null) {
-                    map.put("employee_name", emp.getFullName());
-                    map.put("employee_code", emp.getEmployeeCode());
-                }
-
-                map.put("work_date", att.getWorkDate());
-                map.put("check_in", att.getCheckIn());
-                map.put("check_out", att.getCheckOut());
-                map.put("status", att.getStatus());
-                map.put("worked_hours", att.getWorkedHours());
-                results.add(map);
-            }
-
-            return toJson(results);
-
+            return toJson(processAttendanceResults(attendances));
         } catch (Exception e) {
-            log.error("Error getting attendance by date: {}", e.getMessage(), e);
             return "Error: " + e.getMessage();
         }
     }
 
-    // Helper methods
+    public String getGenderRatio(GenderRatioRequest request) {
+        log.info("Calculating gender ratio");
+        String sql = "SELECT gender, COUNT(*) as count, ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage "
+                +
+                "FROM employees WHERE status = 'ACTIVE' GROUP BY gender";
+        return queryHrDatabase(new SqlQueryRequest(sql));
+    }
+
+    public String getUpcomingBirthdays() {
+        int currentMonth = LocalDate.now().getMonthValue();
+        String sql = "SELECT full_name, dob, employee_code FROM employees " +
+                "WHERE EXTRACT(MONTH FROM dob) = " + currentMonth + " ORDER BY EXTRACT(DAY FROM dob)";
+        return queryHrDatabase(new SqlQueryRequest(sql));
+    }
+
+    public String getEmployeeDetail(IdRequest request) {
+        return employeeRepository.findById(request.id())
+                .map(emp -> toJson(Collections.singletonList(mapEmployeeToMap(emp))))
+                .orElse("Error: Không tìm thấy nhân viên.");
+    }
+
+    public String getNewHires(DaysRequest request) {
+        int days = request.days() > 0 ? request.days() : 30;
+        LocalDate startDate = LocalDate.now().minusDays(days);
+        try {
+            List<EmployeeEntity> employees = employeeRepository.findByHireDateAfter(startDate);
+            return toJson(employees.stream().map(this::mapEmployeeToMap).toList());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    public String getEmployeesOnLeave() {
+        String sql = "SELECT e.full_name, l.leave_type, l.start_date, l.end_date " +
+                "FROM leave_requests l JOIN employees e ON l.employee_id = e.id " +
+                "WHERE CURRENT_DATE BETWEEN l.start_date AND l.end_date AND l.status = 'APPROVED'";
+        return queryHrDatabase(new SqlQueryRequest(sql));
+    }
+
+    // --- Helpers ---
+
+    private boolean isDangerous(String sql) {
+        String s = sql.toUpperCase();
+        return s.contains("DROP") || s.contains("DELETE") || s.contains("UPDATE") || s.contains("INSERT")
+                || s.contains("TRUNCATE");
+    }
+
+    private List<Map<String, Object>> processAttendanceResults(List<AttendanceEntity> attendances) {
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (AttendanceEntity att : attendances) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("employee_id", att.getEmployeeId());
+            map.put("work_date", att.getWorkDate());
+            map.put("check_in", att.getCheckIn());
+            map.put("check_out", att.getCheckOut());
+            map.put("status", att.getStatus());
+            results.add(map);
+        }
+        return results;
+    }
 
     private Map<String, Object> mapEmployeeToMap(EmployeeEntity emp) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", emp.getId());
-        map.put("employee_code", emp.getEmployeeCode());
-        map.put("full_name", emp.getFullName());
-        map.put("gender", emp.getGender());
-        map.put("dob", emp.getDob());
-        map.put("phone", emp.getPhone());
-        map.put("work_email", emp.getWorkEmail());
-        map.put("personal_email", emp.getPersonalEmail());
+        map.put("code", emp.getEmployeeCode());
+        map.put("name", emp.getFullName());
         map.put("status", emp.getStatus());
-        map.put("hire_date", emp.getHireDate());
-        map.put("probation_end_date", emp.getProbationEndDate());
-        map.put("employment_type", emp.getEmploymentType());
         return map;
     }
 
     private String toJson(List<Map<String, Object>> data) {
-        if (data == null || data.isEmpty()) {
+        if (data == null || data.isEmpty())
             return "[]";
-        }
-        
-        StringBuilder sb = new StringBuilder();
-        sb.append("[");
-        
+        StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < data.size(); i++) {
             Map<String, Object> row = data.get(i);
             sb.append("{");
-            
             int j = 0;
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 sb.append("\"").append(entry.getKey()).append("\":");
-                sb.append(formatValue(entry.getValue()));
-                if (++j < row.size()) {
+                Object v = entry.getValue();
+                if (v instanceof Number || v instanceof Boolean)
+                    sb.append(v);
+                else
+                    sb.append("\"").append(v == null ? "null" : v.toString().replace("\"", "\\\"")).append("\"");
+                if (++j < row.size())
                     sb.append(",");
-                }
             }
-            
             sb.append("}");
-            if (i < data.size() - 1) {
+            if (i < data.size() - 1)
                 sb.append(",");
-            }
         }
-        
-        sb.append("]");
-        return sb.toString();
-    }
-
-    private String formatValue(Object value) {
-        if (value == null) {
-            return "null";
-        } else if (value instanceof Number) {
-            return value.toString();
-        } else if (value instanceof Boolean) {
-            return value.toString();
-        } else {
-            return "\"" + escapeJson(value.toString()) + "\"";
-        }
-    }
-
-    private String escapeJson(String s) {
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+        return sb.append("]").toString();
     }
 }
-
